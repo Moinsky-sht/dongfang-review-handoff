@@ -1,0 +1,967 @@
+/* ==================================================================
+   《东方学刊》审稿智能体 — 样式表
+   布局：三栏（左侧稿件/进度 · 中间文档 · 右侧问题清单）
+        两栏侧栏均可折叠；窄屏（手机/平板）改为抽屉
+   ================================================================== */
+
+/* ---------- 设计令牌：所有间距/字号/圆角统一走这里 ---------- */
+:root{
+  /* 颜色 */
+  --bg:#f5f3ef;
+  --panel:#ffffff;
+  --panel-2:#fdfcfa;
+  --ink:#1f1c19;
+  --ink-2:#4a443d;
+  --ink-3:#8a8177;
+  --line:#e4dfd7;
+  --line-2:#efeae3;
+  --accent:#8c2f2f;
+  --accent-soft:#f5eaea;
+  --accent-ink:#7a2626;
+  --fmt:#c26d39;
+  --lang:#2f6b63;
+  --cite:#b28a3e;
+  --model:#5b5b8a;
+  --high:#b3261e;
+  --mid:#b8860b;
+  --low:#6b7280;
+  --ok:#2f8f63;
+
+  /* 间距刻度 */
+  --s1:4px; --s2:6px; --s3:8px; --s4:12px; --s5:16px; --s6:22px;
+  /* 字号刻度 */
+  --f-xs:11px; --f-sm:12px; --f-md:13px; --f-lg:14px; --f-xl:16px;
+  /* 圆角与阴影 */
+  --r-sm:6px; --r-md:9px; --r-lg:12px;
+  --shadow:0 1px 2px rgba(31,28,25,.05),0 6px 18px rgba(31,28,25,.05);
+  --shadow-lg:0 8px 30px rgba(31,28,25,.14);
+  /* 结构尺寸 */
+  --topbar-h:56px;
+  --left-w:264px;
+  --right-w:352px;
+  --rail-w:42px;
+  --page-max:780px;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  font-size:var(--f-lg);line-height:1.6;-webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+button,input,select{font:inherit;color:inherit}
+.hidden{display:none !important}
+.muted{color:var(--ink-3)}
+.small{font-size:var(--f-sm)}
+
+/* 统一滚动条 */
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-thumb{background:#d8d1c7;border-radius:6px;border:2px solid transparent;background-clip:content-box}
+*::-webkit-scrollbar-thumb:hover{background:#c4bcb0;background-clip:content-box}
+*::-webkit-scrollbar-track{background:transparent}
+
+/* ---------- 通用控件 ---------- */
+.btn{
+  border:1px solid var(--line);background:#fff;border-radius:var(--r-sm);
+  padding:var(--s2) var(--s4);cursor:pointer;transition:.15s;white-space:nowrap;font-size:var(--f-md);
+}
+.btn:hover:not(:disabled){border-color:#c9c1b5;background:#fbfaf8}
+.btn:disabled{opacity:.42;cursor:not-allowed}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-primary:hover:not(:disabled){background:var(--accent-ink);border-color:var(--accent-ink)}
+.btn-ghost{background:transparent;border-color:transparent;color:var(--ink-2)}
+.btn-ghost:hover:not(:disabled){background:#f1eee9;border-color:transparent}
+.btn-block{width:100%}
+.btn-sm{padding:var(--s1) var(--s3);font-size:var(--f-sm)}
+
+/* 图标按钮：统一 28×28，纯 CSS 画图标（无字体依赖） */
+.icon-btn{
+  width:28px;height:28px;flex:none;display:grid;place-items:center;
+  border:1px solid transparent;background:transparent;border-radius:var(--r-sm);
+  cursor:pointer;position:relative;transition:.15s;color:var(--ink-2);
+}
+.icon-btn:hover{background:#f1eee9}
+.icon-btn:disabled{opacity:.4;cursor:not-allowed}
+.icon-btn .ico-menu,.icon-btn .ico-list,.icon-btn .ico-funnel,
+.icon-btn .ico-close,.icon-btn .ico-chev-left,.icon-btn .ico-chev-right{display:block;width:14px;height:14px}
+.ico-menu{background:linear-gradient(currentColor,currentColor) 0 1px/14px 1.5px no-repeat,
+  linear-gradient(currentColor,currentColor) 0 6px/14px 1.5px no-repeat,
+  linear-gradient(currentColor,currentColor) 0 11px/14px 1.5px no-repeat}
+.ico-list{background:radial-gradient(circle at 1.5px 2px,currentColor 1.5px,transparent 1.6px) 0 0/14px 5px repeat-y}
+.ico-funnel{background:linear-gradient(currentColor,currentColor) 0 1px/14px 1.5px no-repeat;
+  clip-path:polygon(0 0,100% 0,62% 45%,62% 100%,38% 84%,38% 45%)}
+.ico-close{background:
+  linear-gradient(45deg,transparent 46%,currentColor 46%,currentColor 54%,transparent 54%),
+  linear-gradient(-45deg,transparent 46%,currentColor 46%,currentColor 54%,transparent 54%)}
+.ico-chev-left{background:
+  linear-gradient(45deg,transparent 46%,currentColor 46%,currentColor 56%,transparent 56%) 2px 0/9px 9px no-repeat,
+  linear-gradient(-45deg,transparent 46%,currentColor 46%,currentColor 56%,transparent 56%) 2px 5px/9px 9px no-repeat}
+.ico-chev-right{background:
+  linear-gradient(-135deg,transparent 46%,currentColor 46%,currentColor 56%,transparent 56%) 3px 0/9px 9px no-repeat,
+  linear-gradient(135deg,transparent 46%,currentColor 46%,currentColor 56%,transparent 56%) 3px 5px/9px 9px no-repeat}
+.icon-badge{position:absolute;top:-3px;right:-4px;min-width:16px;height:16px;padding:0 4px;
+  border-radius:9px;background:var(--accent);color:#fff;font-size:10px;line-height:16px;text-align:center}
+
+.select{border:1px solid var(--line);background:#fff;border-radius:var(--r-sm);padding:5px var(--s3);max-width:220px}
+.switch{display:inline-flex;align-items:center;gap:5px;font-size:var(--f-sm);color:var(--ink-2);cursor:pointer;white-space:nowrap}
+.switch input{accent-color:var(--accent);margin:0}
+.pill{padding:3px 10px;border-radius:999px;font-size:var(--f-sm);border:1px solid transparent;white-space:nowrap}
+.pill-muted{background:#f1eee9;color:var(--ink-2);border-color:var(--line)}
+.pill-ok{background:#e8f3ee;color:#1f6b4f;border-color:#cfe6da}
+.pill-warn{background:#fdf3e3;color:#8a5a12;border-color:#f0e0c4}
+.count{display:inline-block;min-width:20px;text-align:center;background:var(--accent-soft);color:var(--accent);
+  border-radius:999px;padding:0 6px;font-size:var(--f-xs);font-weight:600}
+.link-btn{background:none;border:none;color:var(--accent);cursor:pointer;font-size:var(--f-sm);padding:2px 4px}
+.link-btn:hover{text-decoration:underline}
+
+/* ---------- 顶栏 ---------- */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--s4);
+  padding:0 var(--s5);height:var(--topbar-h);background:var(--panel);
+  border-bottom:1px solid var(--line);position:relative;z-index:60;
+}
+.brand{display:flex;align-items:center;gap:var(--s3);min-width:0}
+.brand-mark{
+  width:32px;height:32px;border-radius:var(--r-md);background:var(--accent);color:#fff;
+  display:grid;place-items:center;font-size:var(--f-xl);font-weight:600;flex:none;
+  font-family:"Songti SC","SimSun",serif;
+}
+.brand-text{min-width:0}
+.brand-title{font-weight:650;letter-spacing:.3px;font-family:"Songti SC","SimSun",serif;font-size:15px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand-sub{font-size:var(--f-xs);color:var(--ink-3);margin-top:-3px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+/*
+ * 顶栏操作区：**不换行**，放不下就在内部横向滚动。
+ *
+ * 踩过的坑：原先是 `flex-wrap:wrap`，在 900—1024px 这段（抽屉断点区，
+ * 设置控件按设计回到顶栏）操作区会折成两行、高 72px，而顶栏
+ * `height:var(--topbar-h)` 只有 56px 且 `overflow:hidden` ——
+ * 第二行被裁掉，`#model` 实测 y=-8、完全看不见也点不到。
+ * 也就是说「设置控件搬回顶栏」这条路在 900—1024px 上是**断的**。
+ *
+ * 不换行的代价是窄屏可能挤，所以：
+ *   · `flex:0 0 auto` 让控件保持自身宽度、不被压扁
+ *   · 放不下时 `.topbar-actions` 自己横向滚动（`overflow-x:auto`）
+ *   · 滚动条做细，不破坏顶栏观感
+ */
+.topbar-actions{display:flex;align-items:center;gap:var(--s2);flex-wrap:nowrap;justify-content:flex-end;
+  min-width:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
+.topbar-actions>*{flex:0 0 auto}
+.topbar-actions::-webkit-scrollbar{height:4px}
+.topbar-actions::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+
+/* ---------- 主布局：三栏 ---------- */
+.layout{
+  display:grid;
+  grid-template-columns:var(--left-w) minmax(0,1fr) var(--right-w);
+  gap:var(--s3);padding:var(--s3);
+  height:calc(100vh - var(--topbar-h));
+  align-items:stretch;
+  transition:grid-template-columns .18s ease;
+}
+.layout.left-collapsed{grid-template-columns:var(--rail-w) minmax(0,1fr) var(--right-w)}
+.layout.right-collapsed{grid-template-columns:var(--left-w) minmax(0,1fr) var(--rail-w)}
+.layout.left-collapsed.right-collapsed{grid-template-columns:var(--rail-w) minmax(0,1fr) var(--rail-w)}
+
+/* ---------- 侧栏通用：面板头 + 折叠窄轨 ---------- */
+/* 面板头在桌面端始终可见，折叠按钮放这里；
+   窄轨只在折叠后显示，含一个「展开」按钮，保证折叠后还能展开回来 */
+.p-head{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--s2);
+  padding:var(--s2) var(--s3) var(--s2) var(--s4);
+  border-bottom:1px solid var(--line-2);flex:none;
+}
+.p-title{font-size:var(--f-md);font-weight:650;letter-spacing:.3px;
+  display:flex;align-items:center;gap:var(--s1);min-width:0}
+.p-rail-label{writing-mode:vertical-rl;font-size:var(--f-sm);color:var(--ink-3);letter-spacing:2px}
+.p-rail-badge{background:var(--accent);color:#fff;border-radius:999px;font-size:var(--f-xs);
+  padding:1px 7px;font-weight:600}
+
+/* ---------- 左侧栏 ---------- */
+.left-panel{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);
+  box-shadow:var(--shadow);display:flex;flex-direction:column;min-height:0;overflow:hidden;
+}
+.lp-rail{display:none;flex-direction:column;align-items:center;gap:var(--s3);padding:var(--s3) 0;flex:1}
+.lp-body{display:flex;flex-direction:column;gap:var(--s3);padding:var(--s3);min-height:0;flex:1}
+.left-panel.collapsed .lp-body,
+.left-panel.collapsed>.p-head{display:none}
+.left-panel.collapsed .lp-rail{display:flex}
+
+.card{background:var(--panel-2);border:1px solid var(--line-2);border-radius:var(--r-md);
+  display:flex;flex-direction:column;min-height:0}
+.card-grow{flex:1}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);
+  padding:var(--s3) var(--s4);border-bottom:1px solid var(--line-2)}
+.card-head h2{margin:0;font-size:var(--f-md);font-weight:650;letter-spacing:.3px}
+#queueCard>.card-head{flex-wrap:wrap;justify-content:flex-start;gap:var(--s2)}
+#queueCard>.card-head h2{flex:0 0 100%;white-space:nowrap}
+#queueCard>.card-head>.link-btn{flex:0 0 auto;white-space:nowrap}
+.card-body{padding:var(--s4);overflow:auto;min-height:0}
+.card-grow .card-body{flex:1}
+
+/* ---------- 左栏「审阅设置」卡片（目标点 3） ---------- */
+/*
+ * 设置控件从顶栏搬到这里（见 app.js 的 mountSettings）。
+ * 默认折叠：需要时才展开，左栏平时只留「稿件 + 进度」两块，清爽。
+ * 折叠时 summary 里显示「模型审阅开 · 整段通读」，一眼看出关键状态。
+ */
+/* 顶栏里的兜底容器：搬移后为空，不该占位；未搬移（窄屏）时正常显示 */
+.set-origin{display:contents}
+.set-origin:empty{display:none}
+
+/*
+ * 三块卡片都按**内容高度**排布，左栏整体可滚动。
+ *
+ * 实测原状态：`card-grow{flex:1}` 让进度卡独占剩余高度 ——
+ * 空态下卡片 653px 而内容只有 43px（「尚未开始」一行），
+ * 空出 600px 白板；同时「审阅设置」被挤成 39px（只剩标题行）。
+ * 根因是「用 flex 撑满」表达「这块重要」，但内容本身是自适应的：
+ * 进度条目少时不需要高度，条目多时才需要。
+ *
+ * 现在：卡片一律 `flex:0 0 auto`（高度=内容），`.lp-body` 自己滚。
+ * 进度条目多到超出一屏时由 `.card-body` 内部滚动兜住。
+ */
+.lp-body{overflow:auto}
+#leftPanel .card{flex:0 0 auto}
+#leftPanel .card-grow .card-body{max-height:38vh}
+
+.set-card{flex:none}
+.set-card>summary{list-style:none;cursor:pointer;user-select:none}
+.set-card>summary::-webkit-details-marker{display:none}
+.set-card>summary::before{
+  content:"";width:0;height:0;flex:none;margin-right:var(--s2);
+  border-left:5px solid var(--ink-3);border-top:4px solid transparent;border-bottom:4px solid transparent;
+  transition:transform .15s;
+}
+.set-card[open]>summary::before{transform:rotate(90deg)}
+.set-card>summary h2{margin-right:auto}
+.set-summary{font-size:var(--f-xs);color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.set-summary-off{color:var(--warn,#b06a00)}
+.set-body{padding:var(--s3) var(--s4) var(--s4);display:flex;flex-direction:column;gap:var(--s3)}
+.set-field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.set-label{font-size:var(--f-xs);color:var(--ink-3);letter-spacing:.3px}
+.set-field .select{width:100%}
+.set-field .switch{font-size:var(--f-sm)}
+/* 复选框那行是 label.switch 本身，包进 .set-field 后要让它自己占满一行 */
+.set-field>.switch{display:flex;align-items:center;gap:6px}
+
+.dropzone{
+  border:1.5px dashed #d5cec4;border-radius:var(--r-md);padding:var(--s5) var(--s4);text-align:center;
+  cursor:pointer;transition:.15s;background:#fff;
+}
+.dropzone:hover,.dropzone.over{border-color:var(--accent);background:var(--accent-soft)}
+.dz-icon{font-size:20px;color:var(--ink-3);line-height:1}
+.dz-text{margin-top:var(--s2);font-size:var(--f-sm);color:var(--ink-2)}
+
+.doc-meta{display:flex;flex-direction:column;gap:var(--s3)}
+.doc-title{font-weight:600;font-size:var(--f-md);line-height:1.45;word-break:break-word;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.doc-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--s2) var(--s3)}
+.doc-grid div{font-size:var(--f-sm);color:var(--ink-2)}
+.doc-grid b{color:var(--ink);font-weight:600}
+.doc-path{font-size:var(--f-xs);color:var(--ink-3);word-break:break-all;line-height:1.4}
+
+.prog-body{display:flex;flex-direction:column;gap:var(--s2)}
+.prog-item{display:flex;gap:var(--s2);align-items:flex-start;font-size:var(--f-sm);color:var(--ink-2)}
+.prog-dot{width:7px;height:7px;border-radius:50%;background:#d5cec4;margin-top:6px;flex:none}
+.prog-dot.run{background:var(--accent);animation:pulse 1.2s infinite}
+.prog-dot.done{background:var(--ok)}
+.prog-dot.err{background:var(--high)}
+.prog-dot.warn{background:#d99a2b}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* 进度条（目标点 5）：按窗口计的确定性进度 */
+.prog-bar{padding:0 var(--s4) var(--s2)}
+.prog-bar-track{height:6px;border-radius:3px;background:#e8e2d8;overflow:hidden}
+.prog-bar-fill{height:100%;width:0;border-radius:3px;background:var(--accent);transition:width .35s ease}
+.prog-bar-fill.indet{width:35%;animation:indet 1.4s ease-in-out infinite}
+@keyframes indet{0%{margin-left:-35%}100%{margin-left:100%}}
+.prog-bar-text{margin-top:5px;font-size:var(--f-xs);color:var(--ink-3);display:flex;justify-content:space-between;gap:var(--s2)}
+.prog-bar-text b{color:var(--ink-2);font-weight:600}
+
+/* ---------- 中间：文档区 ---------- */
+.main-area{
+  display:flex;flex-direction:column;min-width:0;min-height:0;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);
+  box-shadow:var(--shadow);overflow:hidden;
+}
+.viewbar{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--s4);
+  padding:var(--s2) var(--s3);border-bottom:1px solid var(--line-2);flex-wrap:wrap;flex:none;
+}
+.viewtabs{display:flex;gap:2px;background:#f1eee9;padding:2px;border-radius:var(--r-md)}
+.tab{border:none;background:transparent;border-radius:var(--r-sm);padding:5px var(--s4);cursor:pointer;
+  font-size:var(--f-md);color:var(--ink-2);transition:.15s}
+.tab:hover{background:#e8e3db}
+.tab-on{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.viewtools{display:flex;align-items:center;gap:var(--s4);flex-wrap:wrap}
+.view{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.view.hidden{display:none}
+
+.doc-scroll{flex:1;min-height:0;overflow:auto;background:var(--bg);
+  padding:var(--s6) var(--s5) 80px;display:flex;flex-direction:column;align-items:center}
+.doc-host{
+  width:100%;max-width:var(--page-max);
+  background:#fff;border-radius:3px;
+  box-shadow:0 0 0 1px rgba(0,0,0,.04),0 2px 14px rgba(0,0,0,.07);
+  padding:48px 56px 44px;
+}
+/* docx-preview 生成的容器：去掉它自带的纸张与留白，统一由 .doc-host 控制 */
+.doc-host .docx-wrapper{
+  background:transparent !important;padding:0 !important;
+  /* docx-preview 把 wrapper 设成 flex，于是里面的 section 顶着一个
+     写死的纸张宽度（inline `width: 595.3pt`）把 wrapper 撑开，容器再窄也压不下去，
+     窄屏/浏览器放大时文档区就出现横向滚动条。改成 block 才能随容器收缩。 */
+  display:block !important;
+}
+/* 纸张宽度是 docx-preview 写的**行内样式**（`padding: 72pt 90.15pt; width: 595.3pt;`）。
+   行内样式默认压过样式表，必须用 !important 才能覆盖，否则放大到 125%～150%
+   文档区只剩 450px 而纸张仍是 546px，横向滚动条照旧出现（实测确认）。 */
+.doc-host .docx-wrapper>section.docx{
+  box-shadow:none !important;margin:0 !important;padding:0 !important;
+  min-width:0 !important;width:auto !important;max-width:100% !important;
+  background:transparent !important;
+}
+.doc-host .docx{color:var(--ink)}
+.doc-host img{max-width:100%;height:auto}
+.doc-host table{max-width:100%}
+
+/*
+ * 正文内问题标记（需求 5）：像 Word 批注那样给**问题本身的文字**加下划线。
+ *
+ * 旧实现是 `.mk-hit`：给整个 run 元素加浅底 + 左侧色条。问题是它划的是
+ * 「一个 run / 一段」，不是「问题本身」—— 用户看到一大片底色，
+ * 仍然不知道该看哪几个字。而且没有下划线。
+ *
+ * 现在由 `applyMarksInParagraph()` 用 Range 精确包裹问题文字，
+ * 下划线颜色按严重度区分，鼠标悬停显示条数，点击由右侧清单驱动跳转。
+ * 底色极浅（避免与稿件本身的底纹打架），主要靠下划线表达「这里有问题」。
+ */
+.doc-host .mk-mark{
+  background:#fff8ec;
+  border-bottom:2px solid var(--mid);
+  border-radius:2px 2px 0 0;
+  padding-bottom:1px;
+  cursor:pointer;
+  transition:background .2s;
+}
+.doc-host .mk-mark.sev-高{background:#fdeeeb;border-bottom-color:var(--high)}
+.doc-host .mk-mark.sev-中{background:#fff8ec;border-bottom-color:var(--mid)}
+.doc-host .mk-mark.sev-低{background:#f2f6fb;border-bottom-color:var(--ink-3)}
+/* 点击清单后闪烁：让用户一眼找到刚刚点的那一条落在哪 */
+.doc-host .mk-mark-flash{
+  background:#ffe0a8 !important;
+  box-shadow:0 0 0 2px #f0b95e;
+}
+/*
+ * 「显示问题标记」关闭时收起标记。
+ * 只去掉视觉，**不摘掉 DOM 里的标记元素** —— 这样开关是零成本的，
+ * 也不必为了切一下开关把整篇 9000px 的文档重渲一遍。
+ */
+.doc-host.marks-off .mk-mark{
+  background:transparent;
+  border-bottom:none;
+  padding-bottom:0;
+  cursor:auto;
+}
+
+/* ---------- 阅读器增强：标题层级 / 引文交互 ---------- */
+
+/*
+ * 标题层级标记（需求 1）。
+ * 层级徽标用 `::before` + `data-head-level` 渲染，**不往段落里插元素** ——
+ * 段落 textContent 一旦多出「H1」这样的字符，下划线对齐就会被带偏。
+ * 徽标放在段落左侧留白，一眼看出「这是第几级标题」。
+ */
+.doc-host p.h-level{position:relative}
+.doc-host p.h-level::before{
+  content:attr(data-head-level);
+  position:absolute;left:-30px;top:.28em;
+  font-size:9.5px;font-weight:700;letter-spacing:.3px;
+  color:var(--accent);background:var(--accent-soft);
+  border:1px solid #e6cfcf;border-radius:4px;padding:0 4px;line-height:15px;
+  opacity:.9;
+}
+.doc-host p.h-l1{font-weight:600}
+.doc-host p.h-l1::before{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/*
+ * 引文一一对应（需求 3）：正文上标 `.cite-ref` ↔ 文末注释 `.cite-note`。
+ * 上标平时低调，悬停给「可点」反馈；点击跳转后闪烁。
+ */
+.doc-host sup.cite-ref{
+  color:var(--accent);cursor:pointer;
+  border-bottom:1px dotted transparent;border-radius:3px;padding:0 1px;
+}
+.doc-host sup.cite-ref:hover{background:var(--accent-soft);border-bottom-color:var(--accent)}
+.doc-host sup.cite-ref-flash{background:#ffe0a8 !important;box-shadow:0 0 0 2px #f0b95e}
+.doc-host li.cite-note{cursor:pointer;border-radius:4px;transition:background .2s}
+.doc-host li.cite-note:hover{background:#fbf6ef}
+
+/* 文末注释区标题：明确「引用文献集中在最下面」 */
+.doc-host .refs-title{
+  margin:var(--s5) 0 var(--s2);
+  padding-top:var(--s3);
+  border-top:1px solid var(--line);
+  font-size:var(--f-md);font-weight:600;color:var(--accent);letter-spacing:.5px;
+}
+
+/* 引文悬停浮层（显示引用文献全名） */
+.cite-tip{
+  position:fixed;z-index:60;max-width:360px;
+  background:#fffdf9;border:1px solid var(--line-2);
+  border-left:3px solid var(--accent);
+  border-radius:var(--r-sm);box-shadow:var(--shadow-lg);
+  padding:var(--s2) var(--s3);
+  font-size:var(--f-sm);line-height:1.6;color:var(--ink-2);white-space:normal;
+}
+.cite-tip.hidden{display:none}
+
+/* ==================================================================
+   统一阅读格式（.mk-clean）：正文 / 标题 / 注释 / 表格一律用**固定**字体字号，
+   不沿用原稿格式。原稿的加粗、下划线、高亮、字色已由
+   normalizeReaderFormatting() 在内联层剥掉，这里负责版式本身。
+   ── 版式取值：中文社科学术期刊惯例（正文宋体小四、标题黑体分级、
+      注释五号、正文段首空两格）；数值集中在本块的 CSS 变量里，便于统一调整。
+   ================================================================== */
+.doc-host.mk-clean{
+  --rd-font:'Times New Roman','Songti SC',SimSun,宋体,serif;
+  --rd-font-head:'Heiti SC',SimHei,黑体,'Microsoft YaHei',sans-serif;
+  --rd-size:12pt;        /* 正文：小四 */
+  --rd-lh:1.8;
+  --rd-ink:#1f1c19;
+  --rd-note-size:10.5pt; /* 注释：五号 */
+}
+/* 压过 docx-preview 注入的文档样式（.docx span / .docx p 等） */
+.doc-host.mk-clean .docx-wrapper,
+.doc-host.mk-clean .docx-wrapper p,
+.doc-host.mk-clean .docx-wrapper span,
+.doc-host.mk-clean .docx-wrapper div:not(.refs-title),
+.doc-host.mk-clean .docx-wrapper li,
+.doc-host.mk-clean .docx-wrapper a{
+  font-family:var(--rd-font);
+  font-size:var(--rd-size);
+  font-weight:400;
+  color:var(--rd-ink);
+}
+/* 正文：段首空两格、两端对齐、固定行距 */
+.doc-host.mk-clean .docx-wrapper p{
+  line-height:var(--rd-lh);
+  margin:0 0 .35em;
+  text-indent:2em;
+  text-align:justify;
+}
+/* 居中段（篇名 / 作者等）不缩进、保持居中 */
+.doc-host.mk-clean .docx-wrapper p[style*="center"]{text-indent:0;text-align:center}
+/* 篇名：刊例中最大，黑体、居中 */
+.doc-host.mk-clean .docx-wrapper p.rd-title{
+  font-family:var(--rd-font-head);font-size:16pt;font-weight:600;
+  text-indent:0;text-align:center;margin:.2em 0 .8em;line-height:1.5;
+}
+.doc-host.mk-clean .docx-wrapper p.rd-title span{font-family:var(--rd-font-head);font-size:16pt;font-weight:600}
+/* 各级标题：黑体、分级字号、不缩进 */
+.doc-host.mk-clean .docx-wrapper p.h-level{
+  font-family:var(--rd-font-head);font-weight:600;
+  text-indent:0;text-align:left;margin:.7em 0 .35em;line-height:1.5;
+}
+.doc-host.mk-clean .docx-wrapper p.h-level span{font-family:var(--rd-font-head);font-weight:600}
+.doc-host.mk-clean .docx-wrapper p.h-l1{font-size:15pt}
+.doc-host.mk-clean .docx-wrapper p.h-l2{font-size:14pt}
+.doc-host.mk-clean .docx-wrapper p.h-l3{font-size:13pt}
+.doc-host.mk-clean .docx-wrapper p.h-l4,
+.doc-host.mk-clean .docx-wrapper p.h-l5,
+.doc-host.mk-clean .docx-wrapper p.h-l6,
+.doc-host.mk-clean .docx-wrapper p.h-l7,
+.doc-host.mk-clean .docx-wrapper p.h-l8,
+.doc-host.mk-clean .docx-wrapper p.h-l9{font-size:12pt}
+/* 脚注 / 尾注区：五号、不缩进 */
+.doc-host.mk-clean .docx-wrapper section.docx > ol > li,
+.doc-host.mk-clean .docx-wrapper section.docx > ol > li p{
+  font-size:var(--rd-note-size);line-height:1.6;
+}
+.doc-host.mk-clean .docx-wrapper section.docx > ol > li p{text-indent:0;margin:0 0 .2em}
+/* 表格：五号、统一边框、不缩进 */
+.doc-host.mk-clean .docx-wrapper table{font-size:var(--rd-note-size);border-collapse:collapse}
+.doc-host.mk-clean .docx-wrapper td,
+.doc-host.mk-clean .docx-wrapper th{font-size:var(--rd-note-size);line-height:1.5;text-indent:0}
+/* 引用上标：保持上标、缩小到 0.72em */
+.doc-host.mk-clean .docx-wrapper sup.cite-ref{font-size:.72em;vertical-align:super}
+
+/* ---------- 稿件内嵌图片与图注 ----------
+   docx-preview **不渲染** `w:drawing`，图片由 renderFigures() 在渲染后补到 DOM。
+   基础样式对「清洗稿 / 原文」两种视图都生效：图片居中、不超出栏宽；
+   图注居中、比正文小一号、不缩进（刊例：图注在图下方居中）。 */
+.doc-host .docx-wrapper figure.rd-figure{
+  margin:.6em 0;
+  display:flex;flex-direction:column;align-items:center;gap:.3em;
+  break-inside:avoid;
+}
+.doc-host .docx-wrapper figure.rd-figure img.rd-img{
+  max-width:100%;height:auto;display:block;border-radius:2px;
+}
+.doc-host .docx-wrapper img.rd-img-fail{
+  min-width:180px;min-height:64px;box-sizing:border-box;
+  border:1px dashed #d8d2c8;
+  background:repeating-linear-gradient(45deg,#faf7f1,#faf7f1 8px,#f2ece2 8px,#f2ece2 16px);
+  text-indent:0;
+}
+/* 图注：渲染器渲染出来的（p.rd-figcap）与解析结果补出来的（figcaption.rd-figcaption）
+   用同一套版式：居中、小一号、不缩进。 */
+.doc-host .docx-wrapper p.rd-figcap,
+.doc-host .docx-wrapper figure.rd-figure figcaption.rd-figcaption{
+  text-indent:0;text-align:center;line-height:1.5;
+  margin:.1em 0 .8em;color:#5c554c;
+}
+.doc-host.mk-clean .docx-wrapper p.rd-figcap,
+.doc-host.mk-clean .docx-wrapper figure.rd-figure figcaption.rd-figcaption{
+  font-family:var(--rd-font);font-size:var(--rd-note-size);
+}
+
+
+/* ---------- 模型复核观点 / 人工处置（需求 5） ---------- */
+.rc-head{margin-bottom:4px}
+.rc-need-human{margin-top:6px;padding:6px 8px;border-radius:var(--r-sm);
+  background:#fff6e5;border:1px solid #f0d9a8;font-size:var(--f-sm);color:var(--ink-2)}
+.rc-human{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+.rc-human>label{display:block;font-size:var(--f-xs);color:var(--ink-3);margin-bottom:4px;letter-spacing:.4px}
+.rc-human-actions{display:flex;flex-wrap:wrap;gap:6px}
+.rc-human-note{margin-top:6px;width:100%;padding:6px 8px;border:1px solid var(--line);
+  border-radius:var(--r-sm);font-size:var(--f-sm);background:var(--panel-2)}
+.rc-human-note:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px rgba(140,47,47,.12)}
+.sev-down{text-decoration:underline dotted;text-underline-offset:2px}
+.human-badge{display:inline-block;padding:0 6px;border-radius:999px;font-size:10px;line-height:16px;
+  background:#fff6e5;color:#8a6116;border:1px solid #f0d9a8;font-weight:600}
+
+/* ---------- 人工审阅模式（需求 6） ---------- */
+.doc-host.human-mode{cursor:text}
+.doc-host.human-mode .docx-wrapper{cursor:text}
+.doc-host .human-mark{background:#e7f0ff;border-bottom:2px solid #4a72c4;border-radius:2px 2px 0 0;padding-bottom:1px}
+.human-pop{position:fixed;z-index:70;width:min(400px,calc(100vw - 24px));max-height:calc(100dvh - 24px);background:var(--panel);
+  border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);overflow:hidden;display:flex;flex-direction:column}
+.human-pop.hidden{display:none}
+.hp-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid var(--line-2);flex:none}
+.hp-title{font-size:var(--f-xl);font-weight:600;color:var(--accent)}
+.hp-subtitle{font-size:var(--f-sm);color:var(--ink-3);margin-top:2px}
+.hp-close{font-size:22px;flex:none}
+#hpForm{display:flex;flex-direction:column;min-height:0}
+.hp-body{padding:16px 18px;overflow:auto;min-height:0;overscroll-behavior:contain}
+.hp-source-head{display:flex;justify-content:space-between;gap:8px;font-size:var(--f-sm);color:var(--ink-3);margin-bottom:6px}
+.hp-source-head>span:first-child{font-weight:600;color:var(--ink-2)}
+.hp-quote{font-size:var(--f-md);line-height:1.7;color:var(--ink-2);background:var(--panel-2);border-left:3px solid var(--accent);
+  padding:10px 12px;border-radius:4px;margin-bottom:16px;max-height:142px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
+.hp-field{display:block;font-size:var(--f-md);font-weight:500;color:var(--ink-2);min-width:0}
+.hp-field>label{display:block;margin-bottom:6px}
+.hp-required{font-size:var(--f-xs);color:var(--ink-3);font-weight:400;margin-left:4px}
+.hp-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-top:16px}
+.hp-field select{width:100%;min-width:0;max-width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-sm);font-size:var(--f-md);background:var(--panel);text-overflow:ellipsis}
+.hp-note{display:block;width:100%;min-height:100px;max-height:240px;resize:vertical;margin-top:6px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm);font:inherit;font-size:var(--f-lg);line-height:1.6}
+.hp-note:focus,.hp-field select:focus,.hp-quote:focus-visible{outline:2px solid var(--accent-soft);outline-offset:1px;border-color:var(--accent)}
+.hp-note[aria-invalid=true]{border-color:var(--high)}
+.hp-hint{font-size:var(--f-xs);color:var(--ink-3);margin-top:6px}
+.hp-more{margin-top:16px;border-top:1px solid var(--line-2);padding-top:12px}
+.hp-more>summary{cursor:pointer;font-size:var(--f-sm);color:var(--ink-2)}
+.hp-more>summary span{color:var(--ink-3);margin-left:6px}
+.hp-more>.hp-field{margin-top:12px}
+.hp-error{margin-top:12px;padding:8px 10px;border-radius:var(--r-sm);background:var(--accent-soft);color:var(--accent-ink);font-size:var(--f-sm)}
+.hp-discard{margin-top:12px;padding:10px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel-2)}
+.hp-discard p{margin:0 0 8px;font-size:var(--f-sm)}
+.hp-discard>div{display:flex;justify-content:flex-end;gap:8px}
+.hp-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--line-2);background:var(--panel-2);flex:none}
+.hp-status{margin-right:auto;max-width:135px;font-size:var(--f-xs);color:var(--ink-3)}
+@media(max-width:640px){.human-pop{width:calc(100vw - 24px);max-height:calc(100dvh - 24px)}.hp-status{max-width:110px}.hp-head{padding:12px 16px}.hp-body{padding:12px 16px}.hp-actions{padding:12px 16px}}
+
+/* ---------- 审稿日志弹窗（需求 7） ---------- */
+.modal{position:fixed;inset:0;z-index:80;background:rgba(31,28,25,.42);
+  display:flex;align-items:center;justify-content:center;padding:var(--s5)}
+.modal.hidden{display:none}
+.modal-card{background:var(--panel);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);
+  width:min(1080px,96vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
+.modal-head{display:flex;align-items:center;justify-content:space-between;
+  padding:var(--s4) var(--s5);border-bottom:1px solid var(--line)}
+.modal-title{font-size:var(--f-lg);font-weight:600;color:var(--accent)}
+.modal-body{padding:var(--s5);overflow:auto}
+.audit-sec{margin-bottom:var(--s6)}
+.audit-sec h3{font-size:var(--f-md);margin:0 0 var(--s3);color:var(--ink)}
+.audit-table{width:100%;border-collapse:collapse;font-size:var(--f-sm)}
+.audit-table th,.audit-table td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+.audit-table th{background:var(--panel-2);color:var(--ink-3);font-weight:600;white-space:nowrap}
+.audit-table td.q{max-width:260px;color:var(--ink-2);line-height:1.5}
+.audit-table td.nowrap{white-space:nowrap;color:var(--ink-3);font-size:var(--f-xs)}
+/* 审稿日志导出工具条（B2） */
+.audit-tools{display:flex;align-items:center;flex-wrap:wrap;gap:var(--s3);
+  padding:var(--s3) var(--s4);margin-bottom:var(--s5);
+  background:var(--panel-2);border:1px solid var(--line-2);border-radius:var(--r-md)}
+.audit-tools label{display:flex;align-items:center;gap:6px;font-size:var(--f-sm);color:var(--ink-3)}
+.audit-tools select{padding:4px 6px;border:1px solid var(--line);border-radius:var(--r-sm);font-size:var(--f-sm);background:#fff}
+.audit-tools .btn{margin-left:auto}
+/* 人工圈画的性质标签（漏检 / 误报 / 表述等） */
+.q-nature{display:inline-block;padding:0 5px;border-radius:4px;font-size:10px;line-height:16px;
+  background:var(--accent-soft);color:var(--accent);border:1px solid #e6cfcf;font-weight:600}
+/* 规则优化建议一键写回（E1） */
+.opt-write{white-space:nowrap}
+
+/* ---------- 批量导入队列（B1） ---------- */
+#queueList{display:flex;flex-direction:column;gap:var(--s1);max-height:38vh;overflow:auto}
+.q-item{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:var(--s2);padding:var(--s3);
+  border-radius:var(--r-sm);cursor:pointer;border:1px solid transparent;transition:.12s}
+.q-item:hover{background:#faf8f5;border-color:var(--line-2)}
+.q-item.q-active{background:var(--accent-soft);border-color:#e6cfcf}
+.q-name{grid-column:1/-1;min-width:0;width:100%;padding:0;border:0;background:transparent;
+  text-align:left;font-size:var(--f-sm);line-height:1.45;white-space:normal;overflow-wrap:anywhere;cursor:pointer;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.q-name:disabled{opacity:1;cursor:default}
+.q-name:focus-visible,.review-steps>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.q-version{justify-self:start;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.q-state{justify-self:end;max-width:145px;white-space:normal !important;overflow-wrap:anywhere;text-align:right}
+.q-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:var(--s2)}
+.q-unsaved{grid-column:1/-1;white-space:normal !important}
+.q-status{flex:none;font-size:10.5px;line-height:16px;padding:0 6px;border-radius:999px;
+  white-space:nowrap;font-variant-numeric:tabular-nums}
+.q-status.q-wait{background:var(--panel-2);color:var(--ink-3);border:1px solid var(--line-2)}
+.q-status.q-done{background:#eaf7f0;color:#1d6b45;border:1px solid #bfe0cd}
+.q-status.q-err{background:#fbe9e7;color:var(--high);border:1px solid #f0cdc6}
+.q-status.q-notice{white-space:normal;overflow-wrap:anywhere;border-radius:var(--r-sm)}
+
+/* ---------- 右侧栏：问题清单 ---------- */
+.right-panel{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);
+  box-shadow:var(--shadow);display:flex;flex-direction:column;min-height:0;overflow:hidden;
+}
+.rp-rail{display:none;flex-direction:column;align-items:center;gap:var(--s3);padding:var(--s3) 0;flex:1}
+.right-panel.collapsed .rp-body{display:none}
+.right-panel.collapsed .rp-rail{display:flex}
+
+.rp-body{display:flex;flex-direction:column;min-height:0;flex:1}
+.rp-stats{padding:var(--s3) var(--s4);border-bottom:1px solid var(--line-2);flex:none;
+  display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;font-size:var(--f-sm);color:var(--ink-2)}
+.rp-stats:empty{display:none}
+.review-notices{flex-basis:100%;color:var(--ink-3);font-size:var(--f-xs);line-height:1.45}
+.review-steps{flex-basis:100%;min-width:0;font-size:var(--f-xs);color:var(--ink-2)}
+.review-steps>summary{cursor:pointer;line-height:1.5;padding:3px 0}
+.review-step-list{max-height:28vh;overflow:auto;display:flex;flex-direction:column;gap:var(--s2);
+  padding:var(--s2) 0 var(--s1);color:var(--ink-3);line-height:1.5}
+.rp-stats b{font-size:var(--f-xl);color:var(--accent);font-variant-numeric:tabular-nums}
+/* 定位精度徽标（需求 4）：悬停看精确/标点级/整段的分布 */
+.rp-stats .anchor-chip{
+  font-size:10.5px;padding:1px 6px;border-radius:4px;white-space:nowrap;
+  background:#f2f6fb;color:var(--ink-2);border:1px solid #dbe4ee;
+  font-variant-numeric:tabular-nums;cursor:help;
+}
+
+/* ---------- 左栏：标题结构（需求 6，让识别结果可当场核对）---------- */
+.doc-heads{margin-top:var(--s3);border-top:1px solid var(--line-2);padding-top:var(--s3)}
+.doc-heads summary{
+  cursor:pointer;font-size:var(--f-sm);color:var(--ink-2);
+  padding:2px 0;list-style:none;
+}
+.doc-heads summary::-webkit-details-marker{display:none}
+.doc-heads summary::before{content:'▸ ';color:var(--ink-3)}
+.doc-heads[open] summary::before{content:'▾ '}
+.doc-heads summary b{color:var(--accent);font-variant-numeric:tabular-nums}
+.doc-heads .head-levels{margin-top:var(--s2);max-height:260px;overflow:auto}
+.doc-heads .head-group{margin-bottom:var(--s3)}
+.doc-heads .head-lv{
+  font-size:10.5px;color:var(--ink-3);text-transform:none;
+  letter-spacing:.02em;margin-bottom:2px;
+}
+.doc-heads .head-item{
+  display:flex;gap:var(--s2);align-items:baseline;
+  padding:2px var(--s2);border-radius:var(--r-sm);cursor:pointer;transition:.12s;
+}
+.doc-heads .head-item:hover{background:#faf8f5}
+.doc-heads .head-src{
+  flex:none;font-size:10px;padding:0 5px;border-radius:4px;line-height:1.6;
+  background:#f2f6fb;color:var(--ink-2);border:1px solid #dbe4ee;white-space:nowrap;
+}
+.doc-heads .head-text{font-size:var(--f-sm);line-height:1.45;color:var(--ink)}
+/* 滚动联动高亮（C1）：当前阅读到的章节在「标题结构」里点亮 */
+.doc-heads .head-item.head-item-active{background:var(--accent-soft);box-shadow:inset 2px 0 0 var(--accent)}
+.doc-heads .head-item.head-item-active .head-text{color:var(--accent);font-weight:600}
+.doc-heads-none{margin-top:var(--s3);border-top:1px solid var(--line-2);padding-top:var(--s3)}
+
+.rp-filters{padding:var(--s3) var(--s4);border-bottom:1px solid var(--line-2);flex:none}.filters-top{display:flex;align-items:center;gap:var(--s2)}
+.search{border:1px solid var(--line);border-radius:var(--r-sm);padding:5px var(--s3);
+  font-size:var(--f-sm);width:100%;min-width:0;background:#fff}
+.search:focus{outline:none;border-color:var(--accent)}
+.filters-more{margin-top:var(--s3);display:flex;flex-direction:column;gap:var(--s2)}
+.filter-row{display:flex;gap:5px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:2px 10px;
+  font-size:var(--f-sm);cursor:pointer;transition:.15s;white-space:nowrap}
+.chip:hover{border-color:#c9c1b5}
+.chip-on{background:var(--ink);border-color:var(--ink);color:#fff}
+.chip-quiet{color:var(--accent);border-style:dashed}
+
+/*
+ * 问题清单与批阅详情**上下并排**（目标点 2/3）。
+ *
+ * 实测：详情展开时清单 373px、详情 372px，正好对半分 —— 清单里
+ * 还能看到 3—4 条问题，切换问题不用先关详情，这是刻意的：
+ * 「清单 + 详情」放在同一侧，点一条看一条，不需要在两个面板间来回找。
+ *
+ * 给清单加一个下限（min-height）而不是让详情想长多长：
+ * 否则一条问题文字很多时详情会把清单压没，用户就失去了「换一条看」的入口。
+ * 详情自身也有 max-height，超出内部滚动。
+ */
+.rp-list{flex:1 1 auto;min-height:180px;overflow:auto;padding:var(--s2)}
+.empty{padding:var(--s6) var(--s4);text-align:center;color:var(--ink-3);
+  font-size:var(--f-sm);line-height:1.7}
+.mk-issue{
+  /* 6 列：勾选框 · 引擎标签 · 严重度 · 标题 · 归并计数 · 一键修改按钮 */
+  display:grid;grid-template-columns:auto auto auto 1fr auto auto;align-items:center;gap:var(--s2);
+  padding:var(--s2) var(--s3);border-radius:var(--r-sm);cursor:pointer;
+  border:1px solid transparent;transition:.12s;margin-bottom:2px;
+}
+.mk-issue:hover{background:#faf8f5;border-color:var(--line-2)}
+.mk-issue.active{background:var(--accent-soft);border-color:#e6cfcf}
+.mk-issue .issue-check{accent-color:var(--accent);margin:0}
+.mk-issue .i-title{font-size:var(--f-sm);line-height:1.45;overflow:hidden;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+/* 本条的具体判定（错在哪）：单独占一行、灰色小字，与规则标题区分开 */
+.mk-issue .i-msg{grid-column:1 / -1;font-size:var(--f-xs);color:var(--ink-3);line-height:1.4;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+/* 同类归并计数：一条问题代表全文 N 处，避免编辑误以为只改这一处 */
+.mk-issue .occ-badge{
+  font-size:10.5px;line-height:1.5;padding:0 5px;border-radius:999px;
+  background:var(--accent-soft);color:var(--accent);border:1px solid #e6cfcf;
+  white-space:nowrap;font-variant-numeric:tabular-nums;
+}
+
+/*
+ * 逐条一键修改（需求 7）。
+ * 小而显眼，但不要抢走标题的注意力 —— 它是「顺手的动作」，
+ * 主操作仍是点击整行查看详情。
+ */
+.mk-issue .issue-fix{
+  flex:none;border:1px solid #d8cfc4;background:#fff;color:var(--accent);
+  border-radius:var(--r-sm);font-size:11px;line-height:1.5;padding:1px 7px;
+  cursor:pointer;transition:.12s;white-space:nowrap;
+}
+.mk-issue .issue-fix:hover{background:var(--accent);border-color:var(--accent);color:#fff}
+.mk-issue .issue-fix.done{
+  background:#eef6f4;border-color:#cbe0dc;color:var(--lang);cursor:default;
+}
+/* 已修改的行：整行降噪，但仍留在清单里（凭空消失会让人怀疑漏审） */
+.mk-issue.resolved .i-title{color:var(--ink-3);text-decoration:line-through}
+.mk-issue.resolved{opacity:.62}
+
+.tag{font-size:10.5px;padding:1px 6px;border-radius:4px;border:1px solid;white-space:nowrap;line-height:1.5}
+.tag-fmt,.tag-format{color:var(--fmt);border-color:#ecd4c2;background:#fdf5ef}
+.tag-lang,.tag-language{color:var(--lang);border-color:#cbe0dc;background:#eef6f4}
+.tag-cite,.tag-citation{color:var(--cite);border-color:#e8dcc0;background:#fbf7ec}
+.tag-model{color:var(--model);border-color:#d2d2e6;background:#f1f1f8}
+.sev{font-size:10.5px;padding:1px 6px;border-radius:4px;white-space:nowrap}
+.sev-高{background:#fbe9e7;color:var(--high)}
+.sev-中{background:#fdf3e0;color:var(--mid)}
+.sev-低{background:#eef0f3;color:var(--low)}
+/* 合格性判定徽标：四档配色由宽到严。title 属性挂判定理由，可悬停核对。 */
+.verdict{font-size:11px;font-weight:600;padding:2px 8px;border-radius:5px;white-space:nowrap;border:1px solid;cursor:help}
+.verdict-合格{color:#1d6b45;border-color:#bfe0cd;background:#eaf7f0}
+.verdict-基本合格{color:#3a6b8a;border-color:#c3dbe8;background:#eef6fb}
+.verdict-需修改{color:#8a6a1d;border-color:#e8dcc0;background:#fbf7ec}
+.verdict-不合格{color:var(--high);border-color:#f0cdc6;background:#fbe9e7}
+/* E2：含模型复核的参考判定——用虚线边框与主判定（实线）区分口径 */
+.verdict-model{border-style:dashed}
+
+/* 详情：嵌在右栏内 */
+.rp-detail{border-top:1px solid var(--line);background:var(--panel-2);
+  max-height:42%;overflow:auto;flex:none}
+.detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s3);
+  padding:var(--s3) var(--s4);border-bottom:1px solid var(--line-2);position:sticky;top:0;
+  background:var(--panel-2);z-index:2}
+.detail-head-text{min-width:0}
+.detail-title{font-weight:650;font-size:var(--f-md);line-height:1.4}
+.detail-meta{font-size:var(--f-xs);color:var(--ink-3);margin-top:2px;font-family:ui-monospace,Menlo,monospace}
+.detail-body{padding:var(--s4);display:flex;flex-direction:column;gap:var(--s3)}
+.detail-block label{display:block;font-size:var(--f-xs);color:var(--ink-3);margin-bottom:2px;letter-spacing:.4px}
+.detail-block>div{font-size:var(--f-sm);line-height:1.65;color:var(--ink-2)}
+.detail-block .quote{background:#fff;border-left:2px solid var(--line);padding:var(--s2) var(--s3);
+  border-radius:0 var(--r-sm) var(--r-sm) 0;font-family:"Songti SC","SimSun",serif}
+.detail-block .proposed{background:#f0f7f3;color:#1c6b46;padding:var(--s2) var(--s3);border-radius:var(--r-sm)}
+.detail-foot{display:flex;flex-direction:column;gap:var(--s2);margin-top:var(--s1)}
+.answer{background:#fff;border:1px solid var(--line-2);border-radius:var(--r-sm);padding:var(--s3);
+  font-size:var(--f-sm);line-height:1.65;white-space:pre-wrap}
+
+.rp-foot{padding:var(--s3) var(--s4);border-top:1px solid var(--line-2);flex:none}
+
+/* ---------- 批注气泡 ---------- */
+.mk-balloon{border:1px solid var(--line-2);border-left-width:3px;border-radius:0 var(--r-sm) var(--r-sm) 0;
+  padding:var(--s3);margin-bottom:var(--s2);cursor:pointer;background:#fff;transition:.12s}
+.mk-balloon:hover{background:var(--panel-2)}
+.mk-balloon.active{background:#fff7ec;border-color:var(--accent)}
+.mk-balloon.sev-高{border-left-color:var(--high)}
+.mk-balloon.sev-中{border-left-color:var(--mid)}
+.mk-balloon.sev-低{border-left-color:var(--low)}
+.mk-balloon-head{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap}
+.mk-balloon-rule{font-size:var(--f-xs);color:var(--ink-3);font-family:ui-monospace,monospace}
+.mk-balloon-title{font-size:var(--f-sm);font-weight:600;margin-top:var(--s2);line-height:1.45}
+.mk-balloon-detail{font-size:var(--f-sm);color:var(--ink-2);margin-top:var(--s2);line-height:1.6}
+.mk-balloon-fix{font-size:var(--f-sm);color:#1c6b46;margin-top:var(--s2);line-height:1.6}
+
+/* ---------- 规则管理视图 ---------- */
+.rules-wrap{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.rules-head{padding:var(--s4) var(--s5);border-bottom:1px solid var(--line-2);flex:none;
+  display:flex;flex-direction:column;gap:var(--s3);background:var(--panel-2)}
+.rules-stats{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;font-size:var(--f-md)}
+.rules-stats b{font-size:var(--f-xl);color:var(--accent);font-variant-numeric:tabular-nums}
+.rules-note{line-height:1.5}
+.rules-controls{display:flex;flex-direction:column;gap:var(--s2)}
+.rules-controls .search{max-width:420px}
+.rules-list{flex:1;min-height:0;overflow:auto;padding:var(--s3) var(--s5) 60px}
+
+.rule-card{border:1px solid var(--line-2);border-radius:var(--r-md);margin-bottom:var(--s2);
+  background:#fff;overflow:hidden}
+.rule-card-head{display:flex;align-items:center;gap:var(--s2);padding:var(--s3) var(--s4);
+  cursor:pointer;flex-wrap:wrap;transition:.12s}
+.rule-card-head:hover{background:var(--panel-2)}
+.rule-card.open .rule-card-head{background:var(--panel-2);border-bottom:1px solid var(--line-2)}
+.rule-id{font-family:ui-monospace,Menlo,monospace;font-size:var(--f-sm);color:var(--ink-3);flex:none}
+.rule-title{font-size:var(--f-md);font-weight:600;flex:1;min-width:180px}
+.rule-occ{flex:none}
+.rule-caret{flex:none;width:18px;text-align:center;color:var(--ink-3);font-weight:600}
+.rule-card-body{padding:var(--s4);display:flex;flex-direction:column;gap:var(--s3)}
+.rule-card-body .detail-block>div{font-size:var(--f-sm);line-height:1.7;color:var(--ink-2)}
+.rule-card-body .mono{font-family:ui-monospace,Menlo,monospace;font-size:var(--f-xs);
+  word-break:break-all;color:var(--ink-3)}
+/* 规则编辑（需求：所有规则都要可以查看编辑） */
+.rule-edit-btn{flex:none;font-size:var(--f-xs);padding:2px 9px;border:1px solid var(--line-2);
+  border-radius:var(--r-sm);background:#fff;color:var(--ink-2);cursor:pointer}
+.rule-edit-btn:hover{background:var(--panel-2);border-color:var(--ink-3)}
+.rule-card.editing{border-color:var(--accent)}
+.rule-editor{display:flex;flex-direction:column;gap:var(--s3)}
+.rule-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s3)}
+.rule-editor label{display:flex;flex-direction:column;gap:4px;font-size:var(--f-xs);color:var(--ink-3)}
+.rule-editor input,.rule-editor select,.rule-editor textarea{
+  font:inherit;font-size:var(--f-sm);color:var(--ink-2);background:#fff;
+  border:1px solid var(--line-2);border-radius:var(--r-sm);padding:6px 8px;width:100%;box-sizing:border-box}
+.rule-editor textarea{resize:vertical;line-height:1.6}
+.rule-editor input:focus,.rule-editor select:focus,.rule-editor textarea:focus{
+  outline:none;border-color:var(--accent);box-shadow:0 0 0 2px rgba(140,47,47,.12)}
+.rule-editor textarea.mono{font-family:ui-monospace,Menlo,monospace}
+.rule-edit-actions{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap}
+.rule-save-btn{font-size:var(--f-sm);padding:5px 16px;border:none;border-radius:var(--r-sm);
+  background:var(--accent);color:#fff;cursor:pointer}
+.rule-save-btn:hover:not(:disabled){background:var(--accent-ink)}
+.rule-save-btn:disabled{opacity:.6;cursor:default}
+.rule-cancel-btn{font-size:var(--f-sm);padding:5px 12px;border:1px solid var(--line-2);
+  border-radius:var(--r-sm);background:#fff;color:var(--ink-2);cursor:pointer}
+@media(max-width:640px){.rule-edit-grid{grid-template-columns:1fr}}
+.tag-status{flex:none}.tag-auto{color:var(--ok);border-color:#cfe6da;background:#eef7f2}
+/* 「未触发」：判据有效但本语料上不可能触发 —— 用灰色虚线边框区别于「正常自动」 */
+.tag-dormant{color:var(--ink-3);border-color:#d8d8d8;border-style:dashed;background:#f7f7f7}
+.tag-model{color:var(--model);border-color:#d2d2e6;background:#f1f1f8}
+.tag-manual{color:var(--mid);border-color:#e8dcc0;background:#fbf7ec}
+
+/* ---------- 模型复核（目标点 13） ---------- */
+/* 三种结论必须一眼可分：通过=绿、有异议=红、无法判断=灰。
+   把「无法判断」也画成绿色是最容易犯的错 —— 它**不是**「正确」。 */
+.rc-tag{display:inline-block;padding:1px 7px;border-radius:999px;font-size:var(--f-xs);
+  border:1px solid transparent;font-weight:600}
+.rc-agree{color:var(--ok);border-color:#cfe6da;background:#eef7f2}
+.rc-disagree{color:var(--high);border-color:#eecfcc;background:#fdeeed}
+.rc-unsure{color:var(--ink-3);border-color:#dcdcdc;background:#f5f5f5}
+.rc-reason{margin-top:5px;font-size:var(--f-sm);color:var(--ink-2);line-height:1.55}
+.rc-better{margin-top:7px}
+.rc-better>label{display:block;font-size:var(--f-xs);color:var(--ink-3);margin-bottom:3px}
+
+/* ---------- 提示 ---------- */
+.toast{
+  position:fixed;left:50%;bottom:28px;transform:translateX(-50%);
+  background:rgba(31,28,25,.92);color:#fff;padding:var(--s3) var(--s5);border-radius:var(--r-md);
+  font-size:var(--f-md);z-index:200;box-shadow:var(--shadow-lg);max-width:min(90vw,520px);text-align:center;
+}
+.scrim{position:fixed;inset:0;background:rgba(31,28,25,.34);z-index:55}
+
+.only-narrow{display:none}
+
+/* ==================================================================
+   响应式
+   ================================================================== */
+/* 中窄屏（约 1180px 逻辑宽以下）：先把左右栏收窄，给文档区让位。
+   这一档是浏览器缩放最常撞到的区间 —— 1600px 物理屏放大到 125%～150%
+   逻辑宽就落在 1067～1280px，原先只有 1024px 一档断点，
+   于是 1067px 时三栏硬挤，文档区只剩 436px 而页面本身要 780px，
+   文档区内部出现横向滚动条（实测确认）。 */
+@media (max-width:1180px){
+  :root{--left-w:220px;--right-w:300px}
+  .doc-scroll{padding:var(--s3)}
+  /* 文档区不够 780px 时不再强撑固定页宽，改为随容器收缩，
+     否则 .doc-host 的 max-width:780px 会撑出横向滚动条 */
+  .doc-host{max-width:100%}
+}
+
+@media (max-width:1280px){
+  :root{--left-w:236px;--right-w:320px}
+}
+
+/* 平板及以下：左右栏改为抽屉，文档区独占 */
+@media (max-width:1024px){
+  :root{--drawer-left-w:min(86vw,320px);--drawer-right-w:min(92vw,420px)}
+  .only-narrow{display:grid}
+  .layout{grid-template-columns:minmax(0,1fr);gap:0;padding:var(--s2)}
+  .layout.left-collapsed,.layout.right-collapsed,
+  .layout.left-collapsed.right-collapsed{grid-template-columns:minmax(0,1fr)}
+
+  .left-panel,.right-panel{
+    position:fixed;top:var(--topbar-h);bottom:0;z-index:60;
+    border-radius:0;box-shadow:var(--shadow-lg);
+    /* 用 left/right 偏移做抽屉动画，不用 transform：
+       transform 在这台浏览器的 fixed 元素上不响应普通级联覆盖 */
+    transition:left .2s ease,right .2s ease;
+  }
+  .left-panel{left:calc(-1 * var(--drawer-left-w));width:var(--drawer-left-w)}
+  .right-panel{right:calc(-1 * var(--drawer-right-w));width:var(--drawer-right-w)}
+  .left-panel.open{left:0}
+  .right-panel.open{right:0}
+  /* 抽屉态下窄轨无意义（用顶栏按钮开关抽屉）。
+     注意：不能用 `display:flex !important` 无条件覆盖，
+     否则 collapsed 状态失效、抽屉收不起来 —— 必须排除 .collapsed */
+  .lp-rail,.rp-rail{display:none !important}
+  .left-panel:not(.collapsed) .lp-body,
+  .right-panel:not(.collapsed) .rp-body{display:flex}
+  .left-panel.collapsed>.p-head,
+  .right-panel.collapsed>.rp-body{display:none}
+  .right-panel .p-head #btnRightCollapse{display:none}
+  .rp-detail{max-height:58%}
+}
+
+/* 手机 */
+@media (max-width:640px){
+  :root{--topbar-h:52px;--s6:16px;--drawer-left-w:min(92vw,300px);--drawer-right-w:100vw}
+  .brand-sub{display:none}
+  .brand-title{font-size:var(--f-md)}
+  .topbar{padding:0 var(--s3);gap:var(--s2)}
+  .topbar-actions{gap:var(--s1)}
+  /**
+   * 设置控件（#model / #useModel / #ruleMode）现在**永远**住在左栏「审阅设置」
+   * 卡片里，不再随断点搬回顶栏（见 app.js 的 mountSettings）。
+   * 所以顶栏里已无 `.select` / `.switch`，下面两条只作为**兜底**保留：
+   * 万一 `#settingsSlot` 缺失（老结构），控件会留在顶栏，此时仍需收窄，
+   * 但**绝不能 `display:none`** —— 那会让手机上「模型深度审阅」开关
+   * 彻底无法开启（这正是本条曾经造成过的故障）。
+   */
+  .topbar-actions .select{max-width:118px;font-size:var(--f-sm)}
+  .topbar-actions .switch{font-size:var(--f-xs);gap:3px}
+  #health{display:none}
+  .doc-scroll{padding:var(--s3) var(--s2) 64px}
+  .doc-host{padding:var(--s5) var(--s4);border-radius:0}
+  /* C3：窄屏 .doc-host 左内边距降到 --s4，绝对定位到 -30px 的层级徽标会被裁掉。
+     改为把徽标收进段落内部（左缩进占位），保证始终可见。 */
+  .doc-host p.h-level{padding-left:26px}
+  .doc-host p.h-level::before{left:0;top:.34em}
+  .tab{padding:5px var(--s3);font-size:var(--f-sm)}
+  .rp-detail{max-height:62%}
+}
+
+/* 打印：只出文档 */
+@media print{
+  .topbar,.left-panel,.right-panel,.viewbar,.toast,.scrim{display:none !important}
+  body{overflow:visible;background:#fff}
+  .layout{display:block;height:auto;padding:0}
+  .main-area{border:none;box-shadow:none;border-radius:0}
+  .doc-scroll{overflow:visible;padding:0;background:#fff}
+  .doc-host{box-shadow:none;padding:0;max-width:none}
+  .view.hidden{display:none !important}
+}

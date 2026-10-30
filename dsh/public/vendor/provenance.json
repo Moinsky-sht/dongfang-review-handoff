@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "generator": "tools/generate-docx-preview-vendor.mjs",
+  "generatorVersion": 3,
+  "package": "docx-preview",
+  "version": "0.4.0",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/VolodymyrBaydalka/docxjs",
+  "upstream": {
+    "bundle": "upstream/docx-preview-0.4.0.js",
+    "bundleSha256": "48206d7d7ab55fcdf50e5a47aff0bd15734b3da6dd30e0b46e47ca172d0e16fc",
+    "sourceMap": "upstream/docx-preview.js.map",
+    "sourceMapSha256": "77e287027ddc46e9c05476b4d050519b1a2c9dd0bf5f538e8612401ffd8d6b17",
+    "licenseSha256": "8668bf4417d161e4eb4d47d6044526e4914d9eb3c748573d9bb7e87708c1253f"
+  },
+  "output": {
+    "bundle": "docx-preview-0.4.0.js",
+    "bundleSha256": "7aef190f44d541e628db03f1135a9529e69d9ba97aac44b9d63228023530d051",
+    "sourceMap": "docx-preview.js.map",
+    "sourceMapSha256": "66b5b6a1b3d6228cc98ff97eb7ce44a4e0f77b9b7251c5d7b7a72feab96fbf07"
+  },
+  "patch": {
+    "method": "HtmlRenderer.renderRun",
+    "generatedLine": 3675,
+    "uniqueMatches": 1,
+    "oldLine": "                children = [this.h({ tagName: elem.verticalAlign, children: this.renderElements(elem.children) })];",
+    "newLine": "                children = [this.h({ tagName: elem.verticalAlign, children })]; // DSH modified: render each run child once.",
+    "reason": "Render run children once. The original verticalAlign branch rendered them a second time, duplicating note-reference and other child side effects."
+  },
+  "identityPatches": [
+    {
+      "method": "DocumentParser.dshSourceXmlIdentity",
+      "old": "        parseNotes(xmlDoc, elemName, elemClass) {",
+      "next": "        // DSH modified: physical identities come only from real WML XML nodes.\n        dshSourceXmlIdentity(node, localName) {\n            const uri = \"http://schemas.openxmlformats.org/wordprocessingml/2006/main\";\n            const doc = node?.ownerDocument;\n            if (!doc || node.namespaceURI !== uri || node.localName !== localName)\n                return {};\n            const roots = { document: \"document.xml\", footnotes: \"footnotes.xml\", endnotes: \"endnotes.xml\" };\n            const root = doc.documentElement;\n            const part = root?.namespaceURI === uri && roots[root.localName];\n            if (!part)\n                return {};\n            this.dshXmlIdentityCache ??= new WeakMap();\n            let byType = this.dshXmlIdentityCache.get(doc);\n            if (!byType) {\n                byType = new Map();\n                this.dshXmlIdentityCache.set(doc, byType);\n            }\n            if (!byType.has(localName))\n                byType.set(localName, new Map(Array.from(doc.getElementsByTagNameNS(uri, localName), (element, ordinal) => [element, ordinal])));\n            const ordinal = byType.get(localName).get(node);\n            if (!Number.isInteger(ordinal))\n                return {};\n            if (localName === \"tab\" || localName === \"noBreakHyphen\")\n                return { part, sourceXmlCharacterOrdinal: ordinal, sourceXmlCharacterNodeId: part + \":xml-\" + localName + \":\" + ordinal };\n            return localName === \"p\"\n                ? { part, sourceXmlParagraphOrdinal: ordinal, sourceXmlNodeId: part + \":xml-p:\" + ordinal }\n                : { part, sourceXmlTableOrdinal: ordinal, sourceXmlNodeId: part + \":xml-tbl:\" + ordinal };\n        }\n        // DSH modified: bind special display characters to their actual XML node.\n        dshSourceCharacter(node, kind) {\n            if (kind !== \"tab\" && kind !== \"noBreakHyphen\")\n                return {};\n            const character = this.dshSourceXmlIdentity(node, kind);\n            let paragraph = node?.parentNode;\n            const uri = \"http://schemas.openxmlformats.org/wordprocessingml/2006/main\";\n            while (paragraph && !(paragraph.namespaceURI === uri && paragraph.localName === \"p\"))\n                paragraph = paragraph.parentNode;\n            const owner = this.dshSourceXmlIdentity(paragraph, \"p\");\n            if (!character.sourceXmlCharacterNodeId || !owner.sourceXmlNodeId || owner.part !== character.part)\n                return {};\n            return { schemaVersion: 1, kind, part: owner.part,\n                paragraphNodeId: owner.sourceXmlNodeId, sourceXmlParagraphOrdinal: owner.sourceXmlParagraphOrdinal,\n                characterNodeId: character.sourceXmlCharacterNodeId, sourceXmlCharacterOrdinal: character.sourceXmlCharacterOrdinal,\n                rawText: kind === \"tab\" ? \"\\t\" : \"-\", displayText: kind === \"tab\" ? \"\\u2003\" : \"\\u2011\",\n                textView: \"after\", offsetUnit: \"utf16\" };\n        }\n        parseNotes(xmlDoc, elemName, elemClass) {",
+      "originalLine": 1428,
+      "generatedLine": 1428,
+      "uniqueMatches": 1,
+      "reason": "Add actual WML XML paragraph/table identity. Fake change wrappers, unknown parts and namespaces never receive an identity; XML node order includes textbox nodes without merging their business ownership."
+    },
+    {
+      "method": "DocumentParser.parseParagraph",
+      "old": "        parseParagraph(node) {\n            var result = { type: DomType.Paragraph, children: [] };",
+      "next": "        parseParagraph(node) {\n            var result = { type: DomType.Paragraph, children: [] };\n            Object.assign(result, this.dshSourceXmlIdentity(node, \"p\")); // DSH physical XML identity.",
+      "originalLine": 1781,
+      "generatedLine": 1827,
+      "uniqueMatches": 1,
+      "reason": "Add actual WML XML paragraph/table identity. Fake change wrappers, unknown parts and namespaces never receive an identity; XML node order includes textbox nodes without merging their business ownership."
+    },
+    {
+      "method": "DocumentParser.parseTable",
+      "old": "        parseTable(node) {\n            var result = { type: DomType.Table, children: [] };",
+      "next": "        parseTable(node) {\n            var result = { type: DomType.Table, children: [] };\n            Object.assign(result, this.dshSourceXmlIdentity(node, \"tbl\")); // DSH physical XML identity.",
+      "originalLine": 2183,
+      "generatedLine": 2230,
+      "uniqueMatches": 1,
+      "reason": "Add actual WML XML paragraph/table identity. Fake change wrappers, unknown parts and namespaces never receive an identity; XML node order includes textbox nodes without merging their business ownership."
+    }
+  ],
+  "characterPatches": [
+    {
+      "method": "DocumentParser.parseRun.Tab",
+      "old": "                        result.children.push({ type: DomType.Tab });",
+      "next": "                        result.children.push({ type: DomType.Tab, dshSourceCharacter: this.dshSourceCharacter(c, \"tab\") }); // DSH actual XML character identity.",
+      "originalLine": 1953,
+      "generatedLine": 2000,
+      "uniqueMatches": 1,
+      "reason": "Actual XML character identities and displayed TAB/nonbreaking-hyphen projection. Do not infer ownership from the displayed glyph."
+    },
+    {
+      "method": "DocumentParser.parseRun.NoBreakHyphen",
+      "old": "                        result.children.push({ type: DomType.NoBreakHyphen });",
+      "next": "                        result.children.push({ type: DomType.NoBreakHyphen, dshSourceCharacter: this.dshSourceCharacter(c, \"noBreakHyphen\") }); // DSH actual XML character identity.",
+      "originalLine": 1931,
+      "generatedLine": 1978,
+      "uniqueMatches": 1,
+      "reason": "Actual XML character identities and displayed TAB/nonbreaking-hyphen projection. Do not infer ownership from the displayed glyph."
+    },
+    {
+      "method": "HtmlRenderer.renderTab",
+      "old": "            var tabSpan = this.h({ tagName: \"span\", children: [\"\\u2003\"] });",
+      "next": "            var tabSpan = this.h({ tagName: \"span\", className: elem.className, children: [\"\\u2003\"] }); // DSH retain source character annotation.",
+      "originalLine": 3659,
+      "generatedLine": 3707,
+      "uniqueMatches": 1,
+      "reason": "Actual XML character identities and displayed TAB/nonbreaking-hyphen projection. Do not infer ownership from the displayed glyph."
+    },
+    {
+      "method": "HtmlRenderer.renderTab.experimental",
+      "old": "                tabSpan.className = this.tabStopClass();",
+      "next": "                tabSpan.className = cx(tabSpan.className, this.tabStopClass()); // DSH retain annotation and tab-stop styling.",
+      "originalLine": 3661,
+      "generatedLine": 3709,
+      "uniqueMatches": 1,
+      "reason": "Actual XML character identities and displayed TAB/nonbreaking-hyphen projection. Do not infer ownership from the displayed glyph."
+    },
+    {
+      "method": "HtmlRenderer.renderElement.NoBreakHyphen",
+      "old": "                    return this.h({ tagName: \"wbr\" });",
+      "next": "                    return this.h({ tagName: \"span\", className: elem.className, children: [\"\\u2011\"] }); // DSH render the actual nonbreaking hyphen, not a word-break hint.",
+      "originalLine": 3446,
+      "generatedLine": 3494,
+      "uniqueMatches": 1,
+      "reason": "Actual XML character identities and displayed TAB/nonbreaking-hyphen projection. Do not infer ownership from the displayed glyph."
+    }
+  ],
+  "sourceMap": {
+    "change": "Changed local expression lines have no upstream mappings. Inserted identity methods have no upstream mapping; unchanged generated lines retain exact upstream source coordinates after their line shift."
+  },
+  "notice": "The modified bundle carries inline DSH modification notices. Original copyright and complete Apache-2.0 license are retained."
+}

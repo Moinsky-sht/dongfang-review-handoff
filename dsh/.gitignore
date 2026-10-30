@@ -1,0 +1,21 @@
+# 依赖（本项目零依赖，正常不需要）
+node_modules/
+
+# 密钥
+.env
+*.pem
+*.key
+
+# 运行时数据（只保留体例规范文本）
+data/*
+!data/standards/
+!data/corpus/
+!data/corpus/manifest.json
+!data/README.md
+
+# 开发产物
+tmp/
+reports/
+archive/
+*.log
+.DS_Store

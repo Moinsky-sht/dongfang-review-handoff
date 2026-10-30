@@ -1,0 +1,83 @@
+--- upstream/docx-preview-0.4.0.js
++++ docx-preview-0.4.0.js
+@@ -1428,1 +1428,47 @@
+-        parseNotes(xmlDoc, elemName, elemClass) {
++        // DSH modified: physical identities come only from real WML XML nodes.
++        dshSourceXmlIdentity(node, localName) {
++            const uri = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
++            const doc = node?.ownerDocument;
++            if (!doc || node.namespaceURI !== uri || node.localName !== localName)
++                return {};
++            const roots = { document: "document.xml", footnotes: "footnotes.xml", endnotes: "endnotes.xml" };
++            const root = doc.documentElement;
++            const part = root?.namespaceURI === uri && roots[root.localName];
++            if (!part)
++                return {};
++            this.dshXmlIdentityCache ??= new WeakMap();
++            let byType = this.dshXmlIdentityCache.get(doc);
++            if (!byType) {
++                byType = new Map();
++                this.dshXmlIdentityCache.set(doc, byType);
++            }
++            if (!byType.has(localName))
++                byType.set(localName, new Map(Array.from(doc.getElementsByTagNameNS(uri, localName), (element, ordinal) => [element, ordinal])));
++            const ordinal = byType.get(localName).get(node);
++            if (!Number.isInteger(ordinal))
++                return {};
++            if (localName === "tab" || localName === "noBreakHyphen")
++                return { part, sourceXmlCharacterOrdinal: ordinal, sourceXmlCharacterNodeId: part + ":xml-" + localName + ":" + ordinal };
++            return localName === "p"
++                ? { part, sourceXmlParagraphOrdinal: ordinal, sourceXmlNodeId: part + ":xml-p:" + ordinal }
++                : { part, sourceXmlTableOrdinal: ordinal, sourceXmlNodeId: part + ":xml-tbl:" + ordinal };
++        }
++        // DSH modified: bind special display characters to their actual XML node.
++        dshSourceCharacter(node, kind) {
++            if (kind !== "tab" && kind !== "noBreakHyphen")
++                return {};
++            const character = this.dshSourceXmlIdentity(node, kind);
++            let paragraph = node?.parentNode;
++            const uri = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
++            while (paragraph && !(paragraph.namespaceURI === uri && paragraph.localName === "p"))
++                paragraph = paragraph.parentNode;
++            const owner = this.dshSourceXmlIdentity(paragraph, "p");
++            if (!character.sourceXmlCharacterNodeId || !owner.sourceXmlNodeId || owner.part !== character.part)
++                return {};
++            return { schemaVersion: 1, kind, part: owner.part,
++                paragraphNodeId: owner.sourceXmlNodeId, sourceXmlParagraphOrdinal: owner.sourceXmlParagraphOrdinal,
++                characterNodeId: character.sourceXmlCharacterNodeId, sourceXmlCharacterOrdinal: character.sourceXmlCharacterOrdinal,
++                rawText: kind === "tab" ? "\t" : "-", displayText: kind === "tab" ? "\u2003" : "\u2011",
++                textView: "after", offsetUnit: "utf16" };
++        }
++        parseNotes(xmlDoc, elemName, elemClass) {
+@@ -1781,2 +1827,3 @@
+-        parseParagraph(node) {
+-            var result = { type: DomType.Paragraph, children: [] };
++        parseParagraph(node) {
++            var result = { type: DomType.Paragraph, children: [] };
++            Object.assign(result, this.dshSourceXmlIdentity(node, "p")); // DSH physical XML identity.
+@@ -2183,2 +2230,3 @@
+-        parseTable(node) {
+-            var result = { type: DomType.Table, children: [] };
++        parseTable(node) {
++            var result = { type: DomType.Table, children: [] };
++            Object.assign(result, this.dshSourceXmlIdentity(node, "tbl")); // DSH physical XML identity.
+@@ -1953,1 +2000,1 @@
+-                        result.children.push({ type: DomType.Tab });
++                        result.children.push({ type: DomType.Tab, dshSourceCharacter: this.dshSourceCharacter(c, "tab") }); // DSH actual XML character identity.
+@@ -1931,1 +1978,1 @@
+-                        result.children.push({ type: DomType.NoBreakHyphen });
++                        result.children.push({ type: DomType.NoBreakHyphen, dshSourceCharacter: this.dshSourceCharacter(c, "noBreakHyphen") }); // DSH actual XML character identity.
+@@ -3659,1 +3707,1 @@
+-            var tabSpan = this.h({ tagName: "span", children: ["\u2003"] });
++            var tabSpan = this.h({ tagName: "span", className: elem.className, children: ["\u2003"] }); // DSH retain source character annotation.
+@@ -3661,1 +3709,1 @@
+-                tabSpan.className = this.tabStopClass();
++                tabSpan.className = cx(tabSpan.className, this.tabStopClass()); // DSH retain annotation and tab-stop styling.
+@@ -3446,1 +3494,1 @@
+-                    return this.h({ tagName: "wbr" });
++                    return this.h({ tagName: "span", className: elem.className, children: ["\u2011"] }); // DSH render the actual nonbreaking hyphen, not a word-break hint.
+@@ -3674,3 +3722,3 @@
+             if (elem.verticalAlign) {
+-                children = [this.h({ tagName: elem.verticalAlign, children: this.renderElements(elem.children) })];
++                children = [this.h({ tagName: elem.verticalAlign, children })]; // DSH modified: render each run child once.
+             }

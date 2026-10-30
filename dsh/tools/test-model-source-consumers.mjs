@@ -1,0 +1,35 @@
+/** Source-status and deduplication consumers; pure engineering controls, no model/API. */
+import {readFile,writeFile,mkdir,lstat} from 'node:fs/promises';
+import {join,resolve,dirname,relative,isAbsolute} from 'node:path';
+import {pathToFileURL,fileURLToPath} from 'node:url';
+import {createHash,randomUUID} from 'node:crypto';
+import assert from 'node:assert/strict';
+import {parseDocxBuffer} from '../src/docx.js';
+import {writeZip} from '../src/zip-write.js';
+const ROOT=resolve(dirname(fileURLToPath(import.meta.url)),'..'),arg=n=>process.argv.find(a=>a.startsWith('--'+n+'='))?.slice(n.length+3),sha=b=>createHash('sha256').update(b).digest('hex');
+const cfg=JSON.parse(await readFile(join(ROOT,'tmp/projection-current-run.json'),'utf8')),mode=arg('source')||'current';assert(['before','current'].includes(mode));
+const root=resolve(ROOT,arg('evidence-root')||process.env.DSH_VERIFICATION_EVIDENCE_DIR||'data/verify'),out=join(root,'model-source-consumers-'+Date.now()+'-'+randomUUID());
+const within=(r,p)=>{const s=relative(r,p);return s&&!s.startsWith('..')&&!isAbsolute(s);};assert(within(join(ROOT,'data/verify'),out)||within(join(ROOT,'data/optimization/runs'),out));
+for(let a=out;;a=dirname(a)){try{const s=await lstat(a);assert(!s.isSymbolicLink());}catch(e){if(e.code!=='ENOENT')throw e;}try{await lstat(join(a,'complete.json'));throw Error('Sealed output');}catch(e){if(e.code!=='ENOENT')throw e;}if(a===dirname(a))break;}
+await mkdir(root,{recursive:true});await mkdir(out);
+const sourceRoot=mode==='before'?join(cfg.runDirectory,'before'):ROOT;
+const paths=['src/anchors.js','src/review.js'],sources=Object.fromEntries(await Promise.all(paths.map(async f=>[f,sha(await readFile(join(sourceRoot,f)))])));
+const {computeAnchor,attachAnchors}=await import(pathToFileURL(join(sourceRoot,paths[0]))),{dedupeAcrossEngines}=await import(pathToFileURL(join(sourceRoot,paths[1])));
+const q='identical prefix that exceeds twenty chars',W='http://schemas.openxmlformats.org/wordprocessingml/2006/main',p=s=>'<w:p><w:r><w:t>'+s+'</w:t></w:r></w:p>';
+const bytes=writeZip([{name:'word/document.xml',data:'<w:document xmlns:w="'+W+'"><w:body>'+p(q+' tail A')+p(q+' tail B')+'</w:body></w:document>'},{name:'[Content_Types].xml',data:'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>'}]),doc=parseDocxBuffer(bytes);
+const checks=[],test=(name,f)=>{try{const details=f();checks.push({name,ok:true,details});}catch(e){checks.push({name,ok:false,error:{name:e.name,message:e.message}});}};
+const unresolved={ruleId:'SOFTWARE-MODEL',paragraphIndex:0,quote:q+' tail A',modelSourceResolution:{status:'unmapped',reasonCode:'outside_exposed_source',candidates:[{target:'paragraph',index:1,start:0,end:49}]}};
+test('unmapped source survives consumer even when a concrete paragraph and exact quote are present',()=>{const a=computeAnchor(unresolved,doc);assert.equal(a.precision,'none');assert.equal(a.resolutionStatus,'unmapped');assert.equal(a.resolutionReason,'outside_exposed_source');assert.deepEqual(a.candidateRanges,unresolved.modelSourceResolution.candidates);return a;});
+test('ambiguous candidates are not reduced to declared first paragraph',()=>{const a=computeAnchor({...unresolved,modelSourceResolution:{status:'ambiguous',reasonCode:'multiple_full_quote_candidates',candidates:[{target:'paragraph',index:0},{target:'paragraph',index:1}]}},doc);assert.equal(a.resolutionStatus,'ambiguous');assert.equal(a.precision,'none');assert.equal(a.candidateRanges.length,2);return a;});
+test('resolved status without a proven literal anchor cannot authorize quote fallback',()=>{const a=computeAnchor({...unresolved,modelSourceResolution:{status:'resolved',source:{target:'paragraph',index:0}}},doc);assert.equal(a.resolutionStatus,'unmapped');assert.equal(a.resolutionReason,'missing_model_source_anchor');return a;});
+test('intentional document issue retains legitimate document navigation',()=>{const a=computeAnchor({ruleId:'SOFTWARE-DOC',quote:'',location:'document',modelSourceResolution:{status:'document',reasonCode:'intentional_document_scope'}},doc);assert.equal(a.precision,'document');return a;});
+test('source status statistics include retained unresolved evidence',()=>{const result={issues:[unresolved]};const stats=attachAnchors(result,doc);assert.equal(stats.none,1);assert.equal(stats.unmapped,1);assert.equal(result.issues[0].anchor.precision,'none');return stats;});
+const base={ruleId:'SOFTWARE-RULE',group:'model',category:'language',paragraphIndex:0,quote:q+' tail A',title:'Software source fixture',detail:'A',fix:'B'};
+test('full quotes with the same first twenty characters remain separate',()=>{const a=dedupeAcrossEngines([base,{...base,quote:q+' tail B'}]);assert.equal(a.length,2);return a.map(i=>i.quote);});
+test('footnote and endnote source owners do not collapse at equal indexes',()=>{const a=dedupeAcrossEngines([{...base,paragraphIndex:undefined,footnoteIndex:2},{...base,paragraphIndex:undefined,endnoteIndex:2}]);assert.equal(a.length,2);return a.length;});
+test('rule prefix cannot hide a different full model quote',()=>{const a=dedupeAcrossEngines([{...base,group:'language',quote:q+' tail A'},{...base,quote:q+' tail B'}]);assert.equal(a.length,2);return a.length;});
+test('different model judgments at the same source are retained',()=>{const a=dedupeAcrossEngines([base,{...base,title:'Different issue',detail:'C',fix:'D'}]);assert.equal(a.length,2);return a.length;});
+test('identical repeat evidence stays idempotent',()=>{const a=dedupeAcrossEngines([base,{...base}]);assert.equal(a.length,1);return a.length;});
+test('different unresolved source declarations are not deduped as one document issue',()=>{const a=dedupeAcrossEngines([{...base,paragraphIndex:undefined,modelSourceDeclaration:{part:'footnote',noteId:'1'},modelSourceResolution:{status:'unmapped',reasonCode:'outside_exposed_source'}},{...base,paragraphIndex:undefined,modelSourceDeclaration:{part:'endnote',noteId:'1'},modelSourceResolution:{status:'unmapped',reasonCode:'outside_exposed_source'}}]);assert.equal(a.length,2);return a.length;});
+const report={at:new Date().toISOString(),source:mode,sourceHashes:sources,passed:checks.filter(c=>c.ok).length,failed:checks.filter(c=>!c.ok).length,checks,modelCalls:0,apiRequests:0,softwareOnly:true};report.ok=!report.failed;
+await writeFile(join(out,'test-source.mjs'),await readFile(fileURLToPath(import.meta.url)),{flag:'wx'});await writeFile(join(out,'report.json'),JSON.stringify(report,null,2)+'\n',{flag:'wx'});console.log(JSON.stringify({out,passed:report.passed,failed:report.failed}));if(report.failed)process.exitCode=1;

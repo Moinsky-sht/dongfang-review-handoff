@@ -1,0 +1,68 @@
+/** Frozen-source software probe. Explicit UI substitutes; no browser/API/model. */
+import assert from 'node:assert/strict';
+import {readFileSync,writeFileSync,mkdirSync,existsSync,lstatSync,realpathSync} from 'node:fs';
+import {resolve,join,dirname,relative,isAbsolute,sep} from 'node:path';
+import {createHash,randomUUID} from 'node:crypto';
+import {fileURLToPath} from 'node:url';
+import {runInNewContext} from 'node:vm';
+const ROOT=resolve(dirname(fileURLToPath(import.meta.url)),'..');
+const arg=n=>process.argv.find(x=>x.startsWith('--'+n+'='))?.slice(n.length+3);
+const sourcePath=resolve(ROOT,arg('source')||'public/app.js'),bytes=readFileSync(sourcePath),source=bytes.toString('utf8');
+const sha=b=>createHash('sha256').update(b).digest('hex');
+const pointer=JSON.parse(readFileSync(join(ROOT,'tmp/range-contract-current-run.json'),'utf8'));
+const RUNS=join(ROOT,'data/optimization/runs'),VERIFY=join(ROOT,'data/verify');
+const within=(root,p)=>{const r=relative(root,p);return r!==''&&r!=='..'&&!r.startsWith('..'+sep)&&!isAbsolute(r);};
+function ancestors(target,sealed){for(let p=resolve(target);;p=dirname(p)){const s=lstatSync(p,{throwIfNoEntry:false});if(s)assert(!s.isSymbolicLink()&&s.isDirectory()&&resolve(realpathSync(p)).toLowerCase()===p.toLowerCase(),'Evidence alias/ancestor rejected: '+p);if(sealed)assert(!existsSync(join(p,'complete.json')),'Sealed evidence ancestor rejected: '+p);if(p===dirname(p))break;}}
+assert(pointer&&typeof pointer.runId==='string'&&/^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$/.test(pointer.runId));
+assert(isAbsolute(pointer.runDirectory));const run=resolve(pointer.runDirectory);assert.equal(dirname(run),RUNS);assert.equal(run,join(RUNS,pointer.runId));ancestors(run,false);
+const inherited=process.env.DSH_VERIFICATION_EVIDENCE_DIR?resolve(ROOT,process.env.DSH_VERIFICATION_EVIDENCE_DIR):null;
+if(inherited){assert(within(RUNS,inherited),'Inherited evidence outside optimizer runs');ancestors(inherited,true);}
+const out=resolve(ROOT,arg('out')||join(inherited||VERIFY,'review-range-ui-'+Date.now()+'-'+randomUUID().slice(0,8),'report.json'));
+function guard(){assert([run,VERIFY,...(inherited?[inherited]:[])].some(r=>within(r,out)),'Output outside authorized evidence');ancestors(dirname(out),true);assert(!existsSync(out),'Evidence exists');}
+guard();const here=dirname(out);
+const methods={};
+function extract(name,async=false,optional=false){const start=source.indexOf((async?'async ':'')+'function '+name+'(');if(start<0&&optional)return '';assert(start>=0);let end;if(name==='isFixable'){const close=source.slice(start).match(/ }\r?\n/);assert(close,'Actual isFixable inline closing boundary');end=start+close.index+2;}else end=source.indexOf('\n}',start)+2;assert(end>start);const text=source.slice(start,end);methods[name]=text;return text;}
+const names=['isFixable','renderMarkupIssues','renderMarkupStats','updateApplyBtn','updateDetailFixBtn'];
+const code='const reviewGapInspections=new Map();\n'+['issueRangeProblem','selectedFixableKeys','readerRenderedMarkStats','reviewCoverageScopeMatches','currentReviewCoverage','normalizeReviewCoverageView','reviewCoveragePresentation','currentReviewGapInspection','renderReviewGapPanel'].map(n=>extract(n,false,true)).join('\n')+'\n'+names.map(n=>extract(n)).join('\n')+'\n'+extract('postApplyFixes',true)+'\nglobalThis.api={isFixable,renderMarkupIssues,renderMarkupStats,updateApplyBtn,postApplyFixes,updateDetailFixBtn,readerRenderedMarkStats:typeof readerRenderedMarkStats==="function"?readerRenderedMarkStats:null};';
+const state={sessionId:'software-only',doc:{paragraphs:[{text:'SOFTWARE same / same'}]},issues:[],accepted:new Set(),resolved:new Set(),activeIssueKey:null,summary:{total:8,bySeverity:{}},anchorStats:{issues:8,exact:7,paragraph:1,ambiguous:1,marks:8},showMarks:true,view:'markup',showOriginal:false};
+const boxes=new Map(),requests=[],checks=[],contexts=new WeakMap(),bindings=new WeakMap();let markers=[],host={querySelectorAll:()=>markers,contains:m=>markers.includes(m)};const current=()=>({version:state.contextVersion});state.contextVersion='software-v0';contexts.set(host,current());const box=()=>({innerHTML:'',textContent:'',disabled:false,querySelectorAll:()=>[],dataset:{},classList:{hidden:false,toggle(_name,v){this.hidden=v;}}});
+const sandbox={state,activeDocHost:()=>host,readerDocumentBindings:contexts,readerNodeBindings:bindings,readerBindingMatches:b=>!!b&&b.version===state.contextVersion,HIT_KEY_SEP:'\u001f',applyFixRequests:new Set(),$:id=>{if(!boxes.has(id))boxes.set(id,box());return boxes.get(id);},readerNoteIssueProblem:()=>null,issueKey:x=>x.issueKey,esc:s=>String(s??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c])),visibleIssues:()=>state.issues,syncRailBadges(){},updateApplyBtn(){},GROUP_TAG:{format:'fmt'},GROUP_LABEL:{format:'格式'},modelTagTitle:()=>'',toast(){},requestWorkMutation:async(route,body)=>{requests.push({route,body});return{softwareOnly:true};}};
+runInNewContext(code,sandbox,{filename:sourcePath});const api=sandbox.api;
+function resetMarks(count=7){state.contextVersion='software-v0';state.showMarks=true;state.showOriginal=false;state.view='markup';state.resolved=new Set();state.issues=[...Array.from({length:count},(_,i)=>issue('resolved','exact'+i)),issue('ambiguous')];markers=Array.from({length:count},(_,i)=>({dataset:{hitKeys:'exact'+i}}));host={querySelectorAll:()=>markers,contains:m=>markers.includes(m)};contexts.set(host,current());markers.forEach(m=>bindings.set(m,current()));}
+
+const issue=(status,id=status)=>({issueKey:id,title:'软件候选范围，不作内容判断',group:'format',severity:'中',autoFix:{find:'SAME',replace:'OTHER'},anchor:{target:'paragraph',index:0,start:0,end:20,text:'SOFTWARE same / same',precision:status==='resolved'?'exact':'paragraph',resolutionStatus:status,candidateRanges:status==='ambiguous'?[{start:9,end:13},{start:16,end:20}]:[]}});
+async function check(name,fn){try{await fn();checks.push({name,ok:true});}catch(e){checks.push({name,ok:false,actual:e.actual??null,expected:e.expected??null,message:e.message});}}
+for(const status of ['ambiguous','unmapped','unresolved']){
+ await check(status+'不可自动修复',()=>assert.equal(api.isFixable(issue(status)),false));
+ await check(status+'卡片没有改按钮且明确待确认，导出checkbox仍在',()=>{state.issues=[issue(status)];api.renderMarkupIssues();const html=boxes.get('#mkIssues').innerHTML;assert.doesNotMatch(html,/class="issue-fix/);assert.doesNotMatch(html,/可自动修复/);assert.match(html,/issue-check/);assert.match(html,/待确认|待定位|未定位/);});
+ await check(status+'仅勾选候选不能启用批量自动修复',()=>{state.issues=[issue(status)];state.accepted=new Set([status]);api.updateApplyBtn();assert.equal(boxes.get('#btnApply').disabled,true);});
+ await check(status+'直接批量入口也不得提交修改',async()=>{state.issues=[issue(status)];requests.length=0;await api.postApplyFixes([status]);assert.equal(requests.length,0);});
+}
+await check('group任何候选发生位置歧义均不作为整项自动修复',()=>{const i=issue('resolved','mixed');i.anchors=[i.anchor,issue('ambiguous').anchor];assert.equal(api.isFixable(i),false);});
+await check('mixed selection仅精确项提交，候选勾选为导出保留',async()=>{state.issues=[issue('resolved','exact'),issue('ambiguous')];state.accepted=new Set(['exact','ambiguous']);requests.length=0;await api.postApplyFixes([...state.accepted]);assert.deepEqual(JSON.parse(JSON.stringify(requests[0]?.body.accepted)),['exact']);assert.deepEqual([...state.accepted],['exact','ambiguous']);});
+resetMarks();
+await check('源8候选与实际7DOM标记不伪称8下划线',()=>{state.issues=[...Array.from({length:7},(_,i)=>issue('resolved','exact'+i)),issue('ambiguous')];state.summary.total=8;api.renderMarkupStats();const html=boxes.get('#mkStats').innerHTML;assert.doesNotMatch(html,/共划出 8 处下划线/);assert.match(html,/源|候选/);assert.match(html,/7/);});
+await check('隐藏标记时不能称本页已显示8下划线',()=>{state.showMarks=false;api.renderMarkupStats();assert.doesNotMatch(boxes.get('#mkStats').innerHTML,/共划出 8 处下划线/);});
+await check('精确且有改法的软件控制仍可修复',()=>assert.equal(api.isFixable(issue('resolved')),true));
+await check('needsRelocation软件控制原有拒绝不退化',()=>assert.equal(api.isFixable({...issue('resolved'),needsRelocation:true}),false));
+await check('源码字节和解析函数提取边界不改变',()=>assert.equal(sha(readFileSync(sourcePath)),sha(bytes)));
+
+function counts(){return api.readerRenderedMarkStats?JSON.parse(JSON.stringify(api.readerRenderedMarkStats())):{segments:0,issues:0,shown:false,ready:false};}
+await check('实际7段和7条问题与源8条和待确认1条分开显示',()=>{resetMarks();api.renderMarkupStats();const html=boxes.get('#mkStats').innerHTML;assert.match(html,/源锚点/);assert.match(html,/位置待确认 1 条/);assert.match(html,/已显示 7 段标记，覆盖 7 条问题/);});
+await check('同一重叠DOM段关联两问题只计1段覆盖2条',()=>{resetMarks(2);markers=[{dataset:{hitKeys:'exact0exact1'}}];bindings.set(markers[0],current());markers.push(markers[0]);const c=counts();assert.equal(c.segments,1);assert.equal(c.issues,2);});
+await check('合法重复渲染实例实际2段覆盖同一问题1条',()=>{resetMarks(1);markers.push({dataset:{hitKeys:'exact0'}});bindings.set(markers[1],current());const c=counts();assert.equal(c.segments,2);assert.equal(c.issues,1);});
+await check('隐藏只称已绘制，不能称当前已显示',()=>{resetMarks();state.showMarks=false;const c=counts();assert.equal(c.segments,7);assert.equal(c.shown,false);api.renderMarkupStats();assert.match(boxes.get('#mkStats').innerHTML,/已隐藏（已绘制 7 段/);assert.doesNotMatch(boxes.get('#mkStats').innerHTML,/已显示 7/);});
+await check('可见筛选仅统计当前问题对应DOM段',()=>{resetMarks();state.issues=[state.issues[0],state.issues.at(-1)];const c=counts();assert.equal(c.segments,1);assert.equal(c.issues,1);});
+await check('已解决问题不计可提交keys或当前问题标记',()=>{resetMarks();state.resolved.add('exact0');state.accepted=new Set(['exact0','exact1']);const c=counts();assert.equal(c.segments,6);api.updateApplyBtn();assert.match(boxes.get('#btnApply').textContent,/1 项/);});
+await check('旧标记binding不计入当前DOM事实',()=>{resetMarks();markers.forEach(m=>bindings.set(m,{version:'software-old'}));assert.equal(counts().segments,0);});
+await check('旧宿主绑定和无宿主均不宣称当前已显示',()=>{resetMarks();contexts.set(host,{version:'software-old'});assert.equal(counts().ready,false);assert.equal(counts().segments,0);host=null;assert.equal(counts().ready,false);api.renderMarkupStats();assert.doesNotMatch(boxes.get('#mkStats').innerHTML,/已显示 7/);});
+await check('原稿只保真查看，不借当前稿DOM数或自动修改',async()=>{resetMarks();state.showOriginal=true;state.accepted=new Set(['exact0']);requests.length=0;assert.equal(api.isFixable(state.issues[0]),false);assert.equal(counts().ready,false);api.renderMarkupStats();assert.match(boxes.get('#mkStats').innerHTML,/原稿视图未显示/);await api.postApplyFixes(['exact0']);assert.equal(requests.length,0);assert.deepEqual([...state.accepted],['exact0']);});
+await check('原稿卡片与详情无可点修改动作，返回当前稿后精确动作恢复',()=>{resetMarks();state.issues=[state.issues[0]];const i=state.issues[0];state.showOriginal=true;api.renderMarkupIssues();api.updateDetailFixBtn(i);const original=boxes.get('#mkIssues').innerHTML;assert.doesNotMatch(original,/class="issue-fix/);assert.match(original,/返回当前稿后修改/);assert.match(original,/导出当前工作稿批注/);assert.equal(boxes.get('#detailFixOne').disabled,true);assert.equal(boxes.get('#detailFixOne').classList.hidden,true);state.showOriginal=false;api.renderMarkupIssues();api.updateDetailFixBtn(i);assert.match(boxes.get('#mkIssues').innerHTML,/class="issue-fix/);assert.equal(boxes.get('#detailFixOne').disabled,false);assert.equal(boxes.get('#detailFixOne').classList.hidden,false);});
+await check('源marks=999仍不能改写实际DOM7段计数',()=>{resetMarks();state.anchorStats.marks=999;api.renderMarkupStats();assert.match(boxes.get('#mkStats').innerHTML,/已显示 7 段/);assert.doesNotMatch(boxes.get('#mkStats').innerHTML,/999.*下划线/);});
+await check('resolved或未知key不能绕过直接批量入口',async()=>{resetMarks();state.resolved.add('exact0');requests.length=0;await api.postApplyFixes(['missing','exact0']);assert.equal(requests.length,0);});
+await check('重复选择key只提交一次精确修改',async()=>{resetMarks();requests.length=0;await api.postApplyFixes(['exact0','exact0']);assert.deepEqual(JSON.parse(JSON.stringify(requests[0]?.body.accepted)),['exact0']);});
+await check('autoFix聚合occurrence有未确认范围时整个卡片不可自动修复',()=>{resetMarks();const i=issue('resolved');i.autoFix.occurrences=[{anchor:issue('resolved').anchor},{anchor:issue('unresolved').anchor}];assert.equal(api.isFixable(i),false);});
+await check('修改锁/服务器队列/工作台恢复失败时按钮继续禁用',()=>{for(const mode of ['streaming','queueRunning','workspaceError','lock']){resetMarks();state.accepted=new Set(['exact0']);state.streaming=false;state.queueRunning=false;state.workspaceError=null;sandbox.applyFixRequests.clear();if(mode==='lock')sandbox.applyFixRequests.add(state.sessionId);else state[mode]=true;api.updateApplyBtn();assert.equal(boxes.get('#btnApply').disabled,true);}});
+const failed=checks.filter(c=>!c.ok).length;
+const report={schemaVersion:1,runId:pointer.runId,phase:arg('phase')||'green',sourcePath,sourceSha256:sha(bytes),toolSha256:sha(readFileSync(fileURLToPath(import.meta.url))),methodSha256:Object.fromEntries(Object.entries(methods).map(([k,s])=>[k,sha(s)])),softwareOnly:true,manuscriptContentJudgment:false,realBrowserVerified:false,realModels:0,realApiRequests:0,serversStarted:0,mutationCallsAreExplicitStubs:true,statisticsScope:'Complete actual UI methods; explicit current/stale binding and DOM marker substitutes; native browser/layout verification is independent.',summary:{total:checks.length,passed:checks.length-failed,failed},checks};
+mkdirSync(here,{recursive:true});guard();writeFileSync(join(here,'actual-functions.json'),JSON.stringify({sourcePath,sourceSha256:sha(bytes),methods},null,2)+'\n',{flag:'wx'});writeFileSync(out,JSON.stringify(report,null,2)+'\n',{flag:'wx'});console.log(JSON.stringify({out,...report.summary,sourceSha256:report.sourceSha256}));if(failed)process.exitCode=1;

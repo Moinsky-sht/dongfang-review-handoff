@@ -1,0 +1,326 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<!--
+  内联 SVG 图标，避免浏览器请求 /favicon.ico 拿到 404
+  （控制台会因此常驻一条红色错误，干扰「有没有真 bug」的判断）。
+  「刊」字取自《东方学刊》。
+-->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%238c2f2f'/%3E%3Ctext x='16' y='23' font-size='19' text-anchor='middle' fill='%23fff' font-family='serif'%3E刊%3C/text%3E%3C/svg%3E" />
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light" />
+  <title>《东方学刊》审稿智能体</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <script src="/node_modules/jszip/dist/jszip.min.js"></script>
+  <script src="/vendor/docx-preview-0.4.0.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <button class="icon-btn only-narrow" id="btnLeft" title="展开侧栏" aria-label="展开侧栏">
+        <span class="ico-menu" aria-hidden="true"></span>
+      </button>
+      <span class="brand-mark">东</span>
+      <div class="brand-text">
+        <div class="brand-title">《东方学刊》审稿智能体</div>
+        <div class="brand-sub">格式体例 · 语言词汇 · 引文注释 · 内容语义</div>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <span id="health" class="pill pill-muted">检查中…</span>
+      <!--
+        模型 / 模型深度审阅 / 规则匹配方式这三个控件由 app.js 搬进左栏
+        「审阅设置」卡片（见 #settingsSlot）。这里保留原节点作为**兜底**：
+        万一卡片不存在，控件仍留在顶栏可用，功能不会消失。
+      -->
+      <span id="settingsOrigin" class="set-origin">
+        <select id="model" class="select" title="审阅模型"></select>
+        <label class="switch"><input type="checkbox" id="useModel" checked /> 模型深度审阅</label>
+        <!--
+          提示词式规则的匹配方式（目标点 12）。默认「整段通读」。
+          「并发逐条匹配」是可选能力：实测它在 1.54 倍输出 token、1.37 倍耗时下
+          反而少发现一半问题，所以不做默认，但保留给需要「单规则专项核查」的场景。
+        -->
+        <select id="ruleMode" class="select" title="提示词式规则的匹配方式">
+          <option value="all" selected>规则：整段通读</option>
+          <option value="per-rule">规则：并发逐条匹配（慢，专项核查）</option>
+        </select>
+        <!--
+          判定口径（E2）：默认关。开启后额外给一版「计入模型复核降级结论」的
+          参考判定，仅作对照；主判定始终是纯规则口径、可对照历史标定。
+        -->
+        <label class="switch" title="额外给一版计入模型复核结论的参考判定（默认关，仅作对照）"><input type="checkbox" id="verdictWithModel" /> 判定含模型复核</label>
+        <!--
+          第二轮自证（本轮新增）：让模型逐条核对「它自己报出的问题是否属实」，
+          不成立则自动降一级并标注「需人工确认」。默认开——这是压误报最直接的一轮。
+          关掉它只影响「是否有第二轮核对」，不影响第一轮的规则+模型审阅本身。
+        -->
+        <label class="switch" title="第二轮：模型逐条核对自己报出的问题是否属实（误报排查），不成立则降级并标注需人工确认。默认开。"><input type="checkbox" id="selfVerify" checked /> 第二轮自证</label>
+        <!--
+          全局上下文（本轮新增）：先通读全文出一份「纲要」，作为所有段落的共享背景；
+          每段审阅时再带上前后邻段（仅作衔接参考）。用来判断指代、用词、论点是否全篇一致
+          这类**跨段问题**。代价是多一次模型调用（每篇 +1 次），默认开。
+        -->
+        <label class="switch" title="先通读全文生成纲要，并给每段带上前后邻段，用于判断跨段落问题（多一次模型调用）。默认开。"><input type="checkbox" id="useContext" checked /> 全局上下文</label>
+        <!--
+          历史批注案例库（本轮新增）：每段审阅时，从 8687 条真人编辑批注里检索「相似段落 +
+          编辑当时的意见」作为尺度参考。只加材料、不改判定；索引缺失时自动跳过。
+        -->
+        <label class="switch" title="从历史稿件的真人编辑批注里检索相似段落的意见，作为本刊尺度参考。默认开。"><input type="checkbox" id="useCases" checked /> 历史批注参考</label>
+      </span>
+      <button id="btnImport" class="btn btn-primary">导入稿件</button>
+      <button id="btnReview" class="btn" disabled>开始审阅</button>
+      <button id="btnCancel" class="btn btn-ghost hidden">中止</button>
+      <button id="btnReport" class="btn" disabled>导出报告</button>
+      <button id="btnWorkingDocx" class="btn" disabled title="下载包含已保存修改的当前 Word 稿件，不添加本轮问题批注">导出当前修改稿</button>
+      <button id="btnDocx" class="btn" disabled title="在当前稿上添加问题批注（导出右侧清单中已勾选的批注；未勾选则全部导出）">导出批注 Word</button>
+      <button class="icon-btn only-narrow" id="btnRight" title="问题清单" aria-label="问题清单">
+        <span class="ico-list" aria-hidden="true"></span>
+        <span class="icon-badge hidden" id="btnRightBadge">0</span>
+      </button>
+    </div>
+  </header>
+
+  <input type="file" id="fileInput" accept=".docx" multiple hidden />
+
+  <main class="layout" id="layout">
+    <!-- ═══ 左侧栏：稿件 + 进度（可折叠）═══ -->
+    <aside class="left-panel" id="leftPanel">
+      <!-- 面板头：桌面端始终可见，折叠按钮放在这里（不能放进 .lp-rail，
+           否则折叠后轨道一显示、按钮就随轨道一起消失，无法再展开） -->
+      <div class="p-head">
+        <span class="p-title">审阅面板</span>
+        <button class="icon-btn" id="btnLeftCollapse" title="折叠侧栏" aria-label="折叠侧栏">
+          <span class="ico-chev-left" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div class="lp-body">
+        <section class="card">
+          <div class="card-head"><h2>稿件</h2></div>
+          <div id="docInfo" class="card-body">
+            <div class="dropzone" id="dropzone">
+              <div class="dz-icon">+</div>
+              <div class="dz-text">把 .docx 拖到这里<br /><span class="muted">或点「导入稿件」</span></div>
+            </div>
+          </div>
+        </section>
+        <!-- 稿件队列（批量导入）：一次选多篇时出现，逐篇导入并清洗，可逐篇切换/批量审阅 -->
+        <section class="card" id="queueCard" style="display:none">
+          <div class="card-head">
+            <h2>稿件队列 <span id="queueCount" class="count">0</span></h2>
+            <button class="link-btn" id="btnReviewQueue" title="对队列中尚未审阅的稿件逐篇审阅">批量审阅</button>
+            <button class="link-btn" id="btnPauseQueue" disabled title="暂停后续稿件，当前稿继续完成；手动继续时重审未完成稿件">暂停队列</button>
+            <button class="link-btn hidden" id="btnCancelQueue" disabled title="取消本轮服务器任务，保留取消记录和稿件">取消本轮</button>
+            <button class="link-btn hidden" id="btnRefreshQueue">刷新进度</button>
+          </div>
+          <div class="card-body" id="queueList"></div>
+        </section>
+        <section class="card card-grow">
+          <div class="card-head">
+            <h2>进度</h2>
+            <span id="progressTimer" class="count hidden">0:00</span>
+          </div>
+          <!--
+            进度条（目标点 5：全程显示进度）。
+            模型审阅是整条链路里最慢的一段（一篇稿件 560—890 秒），
+            原先只有一行文字消息，审稿人看不出「还剩多少」。
+            这里加一条按窗口计的进度条 + 百分比，数据来自后端
+            progress 事件的 current/total（= 已完成的窗口数 / 总窗口数）。
+          -->
+          <div id="progressBar" class="prog-bar hidden">
+            <div class="prog-bar-track"><div id="progressBarFill" class="prog-bar-fill"></div></div>
+            <div id="progressBarText" class="prog-bar-text"></div>
+          </div>
+          <div id="progress" class="card-body prog-body">
+            <div class="muted small">尚未开始</div>
+          </div>
+        </section>
+        <!--
+          审阅设置（目标点 3：左右两侧排布更清楚、清爽）。
+          模型 / 模型深度审阅 / 规则匹配方式这三个控件原先都挤在顶栏里
+          —— 实测顶栏有 9 个控件、合计 961px 宽，其中两个 220px 的下拉
+          （模型列表、规则匹配方式）占了大半，把「导入 / 审阅 / 报告」这些
+          主操作按钮挤到右边，主次不分。
+          挪到左栏并默认折叠：需要时才展开，顶栏只留主操作。
+          控件是**搬移**（app.js 把原节点 append 进来），不是复制，
+          所以 id 与事件监听都原样保留。
+        -->
+        <details class="card set-card" id="settingsCard">
+          <summary class="card-head">
+            <h2>审阅设置</h2>
+            <span class="set-summary" id="settingsSummary">模型深度审阅</span>
+          </summary>
+          <div class="set-body" id="settingsSlot"></div>
+        </details>
+      </div>
+      <!-- 折叠后显示的窄轨：只有展开按钮 -->
+      <div class="lp-rail">
+        <button class="icon-btn" id="btnLeftExpand" title="展开侧栏" aria-label="展开侧栏">
+          <span class="ico-chev-right" aria-hidden="true"></span>
+        </button>
+        <span class="p-rail-label">审阅面板</span>
+      </div>
+    </aside>
+
+    <!-- ═══ 中间：文档阅读器 ═══ -->
+    <section class="main-area">
+      <div class="viewbar">
+        <!--
+          视图精简（用户要求）：只保留「批阅」与「规则」。
+          「Word」与「对比」两个视图已删除 —— Word 视图与批阅视图本就共用
+          同一套渲染器（差别只是显不显示页眉页脚），对比视图另有 diff 面板，
+          审稿人实际只用批阅视图看问题、用规则视图查规则，两者是冗余入口。
+          需要看**投稿原稿**时，用视图工具栏的「查看原文」按钮切换，
+          而不是单开一个常驻视图。
+        -->
+        <div class="viewtabs" id="viewTabs">
+          <button class="tab tab-on" data-view="markup">批阅</button>
+          <button class="tab" data-view="rules">规则</button>
+        </div>
+        <div class="viewtools">
+          <span id="workVersionLabel" class="pill pill-muted">未导入稿件</span>
+          <button id="btnUndoFixes" class="btn btn-sm btn-ghost" disabled title="撤销上一次保存；一次保存可能包含多处修改">撤销修改</button>
+          <button id="btnRedoFixes" class="btn btn-sm btn-ghost" disabled title="重做上一次撤销；一次保存可能包含多处修改">重做修改</button>
+          <label class="switch"><input type="checkbox" id="showMarks" checked /> 修订</label>
+          <span id="humanPurposeLabel" class="pill pill-muted hidden" title="本页人工记录用于软件流程验证，不作为稿件真实性标签">流程验证记录</span>
+          <button class="btn btn-sm btn-ghost" id="btnHumanReview" title="人工审阅模式：在正文里圈画、记录你的判断与经验">人工审阅</button>
+          <button class="btn btn-sm btn-ghost" id="btnAudit" title="审稿日志：查看本次审阅的操作与溯源记录，以及规则优化建议">审稿日志</button>
+          <button class="btn btn-sm btn-ghost hidden" id="btnLegacyReview" disabled title="只读查看迁移前保存的审阅，不将旧意见应用到当前稿">历史审阅</button>
+          <button class="btn btn-sm btn-ghost hidden" id="btnVerifyClean" disabled title="验证历史稿清洗：清理批注并核对文件保真，不调用模型">验证清洗</button>
+          <button class="btn btn-sm btn-ghost" id="btnOriginal" title="查看投稿时的原始文档（含上一轮批注、未清洗）">查看原文</button>
+          <button class="icon-btn only-narrow" id="btnRightOpen" title="问题清单" aria-label="问题清单">
+            <span class="ico-list" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+
+      <div id="viewMarkup" class="view">
+        <div class="doc-scroll" id="docScroll">
+          <div class="doc-host" id="docHost">
+            <div class="empty">导入稿件并开始审阅后，此处显示文档。</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="viewRules" class="view hidden"></div>
+    </section>
+
+    <!-- ═══ 右侧栏：问题清单 + 批注 + 详情（可折叠 / 移动端抽屉）═══ -->
+    <aside class="right-panel" id="rightPanel">
+      <div class="rp-body">
+        <div class="p-head">
+          <span class="p-title">问题清单 <span id="issueCount" class="count">0</span></span>
+          <button class="icon-btn" id="btnRightCollapse" title="折叠问题清单" aria-label="折叠问题清单">
+            <span class="ico-chev-right" aria-hidden="true"></span>
+          </button>
+          <button class="icon-btn only-narrow" id="btnRightClose" title="关闭" aria-label="关闭问题清单">
+            <span class="ico-close" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div class="rp-stats" id="mkStats"></div>
+        <div class="rp-filters">
+          <div class="filters-top">
+            <input id="search" class="search" placeholder="搜索问题 / 原文 / 规则编号" />
+            <button class="icon-btn" id="btnFilterToggle" title="更多筛选" aria-label="更多筛选" aria-expanded="false">
+              <span class="ico-funnel" aria-hidden="true"></span>
+            </button>
+          </div>
+          <div class="filters-more hidden" id="filtersMore">
+            <div class="filter-row" id="filterGroup">
+              <button class="chip chip-on" data-group="all">全部</button>
+              <button class="chip" data-group="format">格式</button>
+              <button class="chip" data-group="language">语言</button>
+              <button class="chip" data-group="citation">引文</button>
+              <button class="chip" data-group="model">模型</button>
+            </div>
+            <div class="filter-row" id="filterSeverity">
+              <button class="chip chip-on" data-sev="all">全部严重度</button>
+              <button class="chip" data-sev="高">高</button>
+              <button class="chip" data-sev="中">中</button>
+              <button class="chip" data-sev="低">低</button>
+            </div>
+            <div class="filter-row">
+              <button class="chip" id="chipFixable" data-fix="1">只看可自动修复</button>
+              <button class="chip" id="chipAccepted" data-acc="1">只看已勾选</button>
+              <button class="chip chip-quiet" id="btnSelectFixable" title="勾选当前筛选下所有可自动修复项">全选可修复</button>
+            </div>
+          </div>
+        </div>
+        <div class="rp-list" id="mkIssues">
+          <div class="empty small muted">暂无问题</div>
+        </div>
+        <div class="rp-detail hidden" id="detail">
+          <div class="detail-head">
+            <div class="detail-head-text">
+              <div id="detailTitle" class="detail-title"></div>
+              <div id="detailMeta" class="detail-meta"></div>
+            </div>
+            <button id="detailClose" class="icon-btn" title="关闭" aria-label="关闭详情">
+              <span class="ico-close" aria-hidden="true"></span>
+            </button>
+          </div>
+          <div class="detail-body">
+            <div class="detail-block"><label>原文</label><div id="detailQuote" class="quote"></div></div>
+            <div class="detail-block"><label>问题</label><div id="detailProblem"></div></div>
+            <div class="detail-block"><label>建议</label><div id="detailFix"></div></div>
+            <div class="detail-block" id="detailProposedWrap"><label>改写</label><div id="detailProposed" class="proposed"></div></div>
+            <div class="detail-block"><label>依据</label><div id="detailBasis" class="muted small"></div></div>
+            <!--
+              模型复核（目标点 13：「每次修改都要有模型复核是否正确」）。
+              后端一直在算 `recheck.byKey`，但前端从来没显示过 ——
+              用户看不到「这条改法模型认不认」，复核等于白跑。
+            -->
+            <div class="detail-block hidden" id="detailRecheckWrap">
+              <label>模型复核</label>
+              <div id="detailRecheck"></div>
+            </div>
+            <div class="detail-foot">
+              <!--
+                一键修改（需求 7）：可直接改写的问题在这里改这一条。
+                旧实现只有底部一个批量按钮，且改完界面不变（服务端返回的
+                doc 被丢弃了），用户必须重跑一次审阅才看得到效果。
+              -->
+              <button id="detailFixOne" class="btn btn-sm btn-primary hidden">一键修改</button>
+              <button id="detailAsk" class="btn btn-sm">追问模型</button>
+              <div id="detailAnswer" class="answer hidden"></div>
+            </div>
+          </div>
+        </div>
+        <div class="rp-foot">
+          <button id="btnApply" class="btn btn-primary btn-block" disabled>应用勾选的自动修复</button>
+        </div>
+      </div>
+      <!-- 折叠后显示的窄轨：展开按钮 + 问题数徽标 -->
+      <div class="rp-rail">
+        <button class="icon-btn" id="btnRightExpand" title="展开问题清单" aria-label="展开问题清单">
+          <span class="ico-chev-left" aria-hidden="true"></span>
+        </button>
+        <span class="p-rail-label">问题清单</span>
+        <span class="p-rail-badge hidden" id="rpRailBadge">0</span>
+      </div>
+    </aside>
+    <div class="scrim hidden" id="scrim"></div>
+  </main>
+
+  <!-- 人工审阅：在正文里圈画后弹出的记录表单 -->
+  <div id="humanPop" class="human-pop hidden" role="dialog" aria-modal="false" aria-labelledby="hpTitle"></div>
+
+  <!-- 审稿日志：审计记录（操作 / 溯源）+ 规则优化建议 -->
+  <div id="auditModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <span class="modal-title" id="auditTitle">审稿日志与经验积累</span>
+        <button class="icon-btn" id="btnAuditClose" title="关闭" aria-label="关闭">
+          <span class="ico-close" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div class="modal-body" id="auditBody"><div class="muted small">加载中…</div></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

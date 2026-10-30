@@ -1,0 +1,22 @@
+{
+  "name": "dongfang-reviewer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "《东方学刊》审稿智能体：格式体例 / 语言词汇 / 引文注释 / 内容语义 四维一审",
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server.mjs",
+    "review": "node tools/cli-review.mjs",
+    "extract": "python tools/extract_context.py",
+    "analyze": "python tools/analyze_topics.py",
+    "test": "node tools/selftest.mjs",
+    "verify": "node tools/verify-all.mjs",
+    "verify:fast": "node tools/verify-all.mjs --fast",
+    "scorecard": "node tools/scorecard.mjs",
+    "gate": "node tools/verify-all.mjs && node tools/scorecard.mjs --gate"
+  },
+  "dependencies": {},
+  "keywords": ["学术期刊", "审稿", "东方学刊", "docx", "ark"],
+  "license": "MIT"
+}

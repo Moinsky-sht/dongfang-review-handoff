@@ -1,0 +1,29 @@
+[
+  {
+    "path": "样例/01-正常稿.docx",
+    "sha256": "24f0b96eeedbbe4390437d0f667443df9cf574d8de8586ebcb9c27a9bec4e688",
+    "season": "05-2024年秋",
+    "status": "extracted_not_semantically_reviewed",
+    "comments": 0,
+    "paragraphs": 223,
+    "revisions": 0
+  },
+  {
+    "path": "样例/02-带批注修订.docx",
+    "sha256": "61f8b835f59041daffebd0fd57d66772b79c40e078e0167cb38fd0d8acbf68ac",
+    "season": "12-2026年夏",
+    "status": "extracted_not_semantically_reviewed",
+    "comments": 61,
+    "paragraphs": 203,
+    "revisions": 2500
+  },
+  {
+    "path": "样例/03-格式复杂.docx",
+    "sha256": "a2350633c89a1e03ef211aa9a50cf610a0d74de97bc3fef59f8acdab3a59b98f",
+    "season": "06-2024年冬",
+    "status": "extracted_not_semantically_reviewed",
+    "comments": 0,
+    "paragraphs": 618,
+    "revisions": 0
+  }
+]
